@@ -9,23 +9,6 @@ locals {
   name = "pki-homelab-proxmox-vm-${local.environment_name}"
 }
 
-unit "proxmox_pool" {
-  // You'll typically want to pin this to a particular version of your catalog repo.
-  // e.g.
-  // source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-pool?ref=v0.1.0"
-  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-pool"
-
-  path = "proxmox-pool"
-
-  values = {
-    // This version here is used as the version passed down to the unit
-    // to use when fetching the OpenTofu/Terraform module.
-    version = "main"
-
-    pool_id = "pool-${local.environment_name}"
-  }
-}
-
 unit "proxmox_vm" {
   // You'll typically want to pin this to a particular version of your catalog repo.
   // e.g.
@@ -39,9 +22,8 @@ unit "proxmox_vm" {
     // to use when fetching the OpenTofu/Terraform module.
     version = "main"
 
-    vm_name        = "vm-pki-${local.environment_name}"
-    pool_id        = "pool-${local.environment_name}"
-    pool_unit_path = "../proxmox-pool"
+    vm_name = "vm-pki-${local.environment_name}"
+    pool_id = "pool-${local.environment_name}"
   }
 }
 
