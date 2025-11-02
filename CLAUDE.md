@@ -11,6 +11,7 @@ This is a **Terragrunt infrastructure-live repository** for managing homelab inf
 - Environment-based organization (staging, production)
 
 The repository follows Terragrunt's "infrastructure-live" pattern where configurations reference reusable modules from a separate "infrastructure-catalog" repository.
+The local catalog repository is located at: `../terragrunt-infrastructure-catalog-homelab/`
 
 ## Key Architecture Concepts
 
