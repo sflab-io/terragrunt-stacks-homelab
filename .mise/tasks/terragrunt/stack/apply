@@ -19,5 +19,11 @@ selected_stack=$(printf "%s\n" "${stack_dirs[@]}" | gum choose --header="Select 
 
 cd "$selected_stack"
 
-terragrunt stack generate
-terragrunt stack run apply -- --auto-approve
+STACK_GENERATE_COMMAND="terragrunt stack generate"
+STACK_RUN_APPLY_CMD="terragrunt stack run apply -- --auto-approve"
+
+echo "Running: $STACK_GENERATE_COMMAND"
+eval $STACK_GENERATE_COMMAND
+
+echo "Running: $STACK_RUN_APPLY_CMD"
+eval $STACK_RUN_APPLY_CMD
