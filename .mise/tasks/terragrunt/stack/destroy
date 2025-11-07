@@ -1,25 +1,46 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+set -e
 
-PROJECT_DIR="$SCRIPT_DIR/../../../.."
+#USAGE arg "<env>" help="The environment to use" default=""
+#USAGE arg "<target>" help="The target unit" default=""
+#USAGE flag "-d --dry-run" help="Show the commands without executing it"
 
-ENVIRONMENT=$(gum choose "staging" "production")
+if [[ -z "${usage_env:-}" ]]; then
+  ENVIRONMENT=$(gum choose "staging" "production")
+else
+  ENVIRONMENT="${usage_env}"
+fi
 echo "Selected environment: $ENVIRONMENT"
 
-cd "$PROJECT_DIR/$ENVIRONMENT"
+cd "$MISE_CONFIG_ROOT/$ENVIRONMENT"
 
-stack_dirs=()
-while IFS= read -r -d '' dir; do
-  stack_dirs+=("$(basename "$dir")")
-done < <(find "." -mindepth 1 -maxdepth 1 -type d -print0)
+if [[ -z "${usage_target:-}" ]]; then
+  stack_dirs=()
 
-# Show a selection menu with gum to select a unit
-selected_stack=$(printf "%s\n" "${stack_dirs[@]}" | gum choose --header="Select a stack to operate on:")
+  while IFS= read -r -d '' dir; do
+    stack_dirs+=("$(basename "$dir")")
+  done < <(find "." -mindepth 1 -maxdepth 1 -type d -print0)
 
-cd "$selected_stack"
+  # Show a selection menu with gum to select a unit
+  selected_stack=$(printf "%s\n" "${stack_dirs[@]}" | gum choose --header="Select a stack to operate on:")
+else
+  selected_stack+=("${usage_target}")
+fi
 
-TERRAGRUNT_STACK_DESTROY_CMD="terragrunt stack run destroy -- --auto-approve"
+cd "$MISE_CONFIG_ROOT/$ENVIRONMENT/$selected_stack"
 
-echo "Running: $TERRAGRUNT_STACK_DESTROY_CMD"
+TERRAGRUNT_STACK_DESTROY_CMD="terragrunt stack run destroy"
+
+echo ""
+echo "🚀 Executing..."
+echo "   Commands: $TERRAGRUNT_STACK_DESTROY_CMD"
+echo "   Working directory: $(pwd)"
+echo ""
+
+if [ "$usage_dry_run" = "true" ]; then
+  echo "Dry run mode. Command not executed."
+  exit 0
+fi
+
 eval $TERRAGRUNT_STACK_DESTROY_CMD
