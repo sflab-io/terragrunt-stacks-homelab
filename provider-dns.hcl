@@ -7,7 +7,7 @@
 locals {
   dns_server = "192.168.1.13"
   dns_port   = 53
-  dns_key_name   = "home.sflab.io-key"
+  dns_key_name   = "ddnskey."
   dns_key_algorithm = "hmac-sha256"
 }
 
