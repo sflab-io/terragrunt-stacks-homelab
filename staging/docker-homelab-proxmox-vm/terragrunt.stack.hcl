@@ -8,7 +8,11 @@ locals {
   environment_name = local.environment_vars.locals.environment_name
 
   # Use environment_name in stack name
-  name = "docker-homelab-proxmox-vm-${local.environment_name}"
+  pool_id = "pool-${local.environment_name}"
+
+  vm_name = "docker-vm-${local.environment_name}"
+
+  zone = try(values.dns_zone, "${local.environment_name}.home.sflab.io.")
 }
 
 unit "proxmox_vm" {
@@ -17,34 +21,25 @@ unit "proxmox_vm" {
   path = "proxmox-vm"
 
   values = {
-    // This version here is used as the version passed down to the unit
-    // to use when fetching the OpenTofu/Terraform module.
     version = local.version
 
-    vm_name = "vm-docker-${local.environment_name}"
-    pool_id = "pool-${local.environment_name}"
+    vm_name = local.vm_name
+    pool_id = local.pool_id
+
+    pool_unit_path = "../proxmox-pool"
   }
 }
 
 # unit "dns" {
-#   // You'll typically want to pin this to a particular version of your catalog repo.
-#   // e.g.
-#   // source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=v0.1.0"
 #   source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns"
 
 #   path = "dns"
 
 #   values = {
-#     // This version here is used as the version passed down to the unit
-#     // to use when fetching the OpenTofu/Terraform module.
-#     version = "main"
+#     version = local.version
 
-#     zone          = "home.sflab.io."
-#     name          = "docker-host-1"
-#     dns_server    = "192.168.1.13"
-#     dns_port      = 5353
-#     key_name      = "ddnskey."
-#     key_algorithm = "hmac-sha512"
+#     zone          = local.zone
+#     name          = local.vm_name
 
 #     vm_unit_path  = "../proxmox-vm"
 #   }

@@ -8,7 +8,7 @@ locals {
   environment_name = local.environment_vars.locals.environment_name
 
   # Use environment_name in stack name
-  name = "shared-resources-${local.environment_name}"
+  pool_id = "pool-${local.environment_name}"
 }
 
 unit "proxmox_pool" {
