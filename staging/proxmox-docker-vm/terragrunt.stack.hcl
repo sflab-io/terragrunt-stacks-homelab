@@ -12,7 +12,7 @@ locals {
 
   vm_name = "docker-vm-${local.environment_name}"
 
-  zone = try(values.dns_zone, "${local.environment_name}.home.sflab.io.")
+  zone = "home.sflab.io."
 }
 
 unit "proxmox_vm" {
@@ -26,21 +26,21 @@ unit "proxmox_vm" {
     vm_name = local.vm_name
     pool_id = local.pool_id
 
-    pool_unit_path = "../proxmox-pool"
+    # pool_unit_path = "../proxmox-pool"
   }
 }
 
-# unit "dns" {
-#   source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns"
+unit "dns" {
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
 
-#   path = "dns"
+  path = "dns"
 
-#   values = {
-#     version = local.version
+  values = {
+    version = local.version
 
-#     zone          = local.zone
-#     name          = local.vm_name
+    zone          = local.zone
+    name          = local.vm_name
 
-#     vm_unit_path  = "../proxmox-vm"
-#   }
-# }
+    compute_path  = "../proxmox-vm"
+  }
+}

@@ -30,11 +30,11 @@ fi
 
 cd "$MISE_CONFIG_ROOT/$ENVIRONMENT/$selected_stack"
 
-TERRAGRUNT_CMD="terragrunt stack run destroy"
+CMD="terragrunt stack run destroy"
 
 echo ""
 echo "🚀 Executing..."
-echo "   Commands: $TERRAGRUNT_CMD"
+echo "   Commands: $CMD"
 echo "   Working dir: $(pwd)"
 echo ""
 
@@ -43,4 +43,13 @@ if [ "$usage_dry_run" = "true" ]; then
   exit 0
 fi
 
-eval $TERRAGRUNT_CMD
+echo "⚠️ Are you really sure to destroy the stack?"
+read -p "Type 'do it baby' to confirm: " confirm
+
+if [[ "$confirm" != "do it baby" ]]; then
+  echo ""
+  echo "Destroy aborted by user"
+  exit 1
+fi
+
+eval $CMD

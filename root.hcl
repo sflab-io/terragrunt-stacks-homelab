@@ -1,23 +1,13 @@
-# ---------------------------------------------------------------------------------------------------------------------
-# TERRAGRUNT CONFIGURATION
-# Terragrunt is a thin wrapper for Terraform/OpenTofu that provides extra tools for working with multiple modules,
-# remote state, and locking: https://github.com/gruntwork-io/terragrunt
-# ---------------------------------------------------------------------------------------------------------------------
-
 locals {
-  # Automatically load account-level variables
-  environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
+  s3_backend_vars = read_terragrunt_config(find_in_parent_folders("backend-config.hcl"))
 
-  environment_name = local.environment_vars.locals.environment_name
-
-  proxmox_endpoint = "https://proxmox.home.sflab.io:8006/"
-
-  s3_backend_region = "eu-central-1"
-  s3_backend_endpoint  = "http://minio.home.sflab.io:9000"
-  s3_backend_skip_credentials_validation = true
-  s3_backend_force_path_style = true
-  s3_backend_access_key = get_env("AWS_ACCESS_KEY_ID")
-  s3_backend_secret_key = get_env("AWS_SECRET_ACCESS_KEY")
+  s3_backend_prefix                      = local.s3_backend_vars.locals.prefix
+  s3_backend_region                      = local.s3_backend_vars.locals.region
+  s3_backend_endpoint                    = local.s3_backend_vars.locals.endpoint
+  s3_backend_skip_credentials_validation = local.s3_backend_vars.locals.skip_credentials_validation
+  s3_backend_force_path_style            = local.s3_backend_vars.locals.force_path_style
+  s3_backend_access_key                  = local.s3_backend_vars.locals.access_key
+  s3_backend_secret_key                  = local.s3_backend_vars.locals.secret_key
 }
 
 # Generate the remote backend
@@ -25,8 +15,7 @@ remote_state {
   backend = "s3"
 
   config = {
-    bucket                      = "homelab-terragrunt-tfstates"
-
+    bucket                      = "${local.s3_backend_prefix}-tfstates"
     key                         = "${path_relative_to_include()}/tofu.tfstate"
     region                      = local.s3_backend_region
     endpoint                    = local.s3_backend_endpoint

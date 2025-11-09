@@ -18,12 +18,15 @@ The local catalog repository is located at: `../terragrunt-infrastructure-catalo
 ### Repository Structure
 
 ```
-├── root.hcl                    # Root Terragrunt config: provider generation, remote state, catalog URLs
+├── root.hcl                    # Root Terragrunt config: remote state, catalog URLs
+├── provider-config.hcl         # Proxmox provider configuration
+├── dns-config.hcl              # DNS provider configuration
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
-│   ├── shared-resources/       # Environment-wide shared resources (pools, networks, etc.)
+│   ├── backend-config.hcl      # Environment-specific backend configuration
+│   ├── proxmox-pool/           # Proxmox resource pool stack
 │   │   └── terragrunt.stack.hcl
-│   └── {stack-name}/           # Individual stack deployments
+│   └── {stack-name}/           # Individual stack deployments (e.g., proxmox-docker-vm)
 │       └── terragrunt.stack.hcl # Stack definition with units
 └── .mise/tasks/                # Automation tasks via mise
 ```
@@ -41,49 +44,61 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
 ### Configuration Hierarchy
 
 1. **root.hcl**: Defines global settings inherited by all stacks
-   - Proxmox provider configuration
-   - S3 backend configuration (MinIO)
+   - S3 backend configuration (reads from `backend-config.hcl`)
    - Catalog repository URLs
-   - Reads environment variables from `environment.hcl`
+   - Note: Provider configuration has been moved to separate files
 
-2. **environment.hcl**: Environment-specific variables (e.g., `environment_name = "staging"`)
+2. **provider-config.hcl**: Proxmox provider configuration
+   - Generates `provider.tf` for Proxmox provider
+   - Configured for SSH agent authentication
 
-3. **terragrunt.stack.hcl**: Stack definition with multiple units
+3. **dns-config.hcl**: DNS provider configuration
+   - DNS server, port, and key settings for dynamic DNS updates
+
+4. **environment.hcl**: Environment-specific variables (e.g., `environment_name = "staging"`)
+
+5. **backend-config.hcl**: Environment-specific backend configuration
+   - Defines S3 backend prefix, endpoint, and credentials
+   - Located in each environment directory
+
+6. **terragrunt.stack.hcl**: Stack definition with multiple units
    - Each unit references a module from the catalog
    - Units can have dependencies on each other within the same stack
    - Local variables define stack-wide settings
 
 ### Shared Resources Pattern
 
-The repository uses a **shared-resources** stack pattern for environment-wide resources:
+The repository uses a **proxmox-pool** stack pattern for environment-wide resources:
 
-- **shared-resources Stack**: Contains resources shared across multiple application stacks
-  - Located at `{environment}/shared-resources/`
-  - Currently manages the Proxmox resource pool for the environment
-  - Must be deployed **before** application stacks that depend on these resources
+- **proxmox-pool Stack**: Contains the Proxmox resource pool shared across multiple application stacks
+  - Located at `{environment}/proxmox-pool/`
+  - Manages the Proxmox resource pool for the environment
+  - Must be deployed **before** application stacks that depend on this resource
 
-- **Application Stacks**: Reference shared resources by ID/name (e.g., `pool_id = "pool-staging"`)
-  - Do not create shared resources themselves
-  - Depend on shared resources being pre-deployed
-  - Examples: `docker-homelab-proxmox-vm`, `pki-homelab-proxmox-vm`
+- **Application Stacks**: Reference the shared pool by ID/name (e.g., `pool_id = "pool-staging"`)
+  - Do not create the pool themselves
+  - Depend on the pool being pre-deployed
+  - Examples: `proxmox-docker-vm`, `proxmox-pki-vm`
 
 **Deployment Order**:
-1. Deploy `shared-resources` stack first (one-time or when shared resources change)
-2. Deploy application stacks in any order (they all reference the same shared pool)
+1. Deploy `proxmox-pool` stack first (one-time or when pool configuration changes)
+2. Deploy application stacks in any order (they all reference the same pool)
 
 ### Remote State Backend
 
 - Uses **MinIO** as S3-compatible backend
-- Bucket naming: `{environment_name}-homelab-terragrunt-tfstates`
+- Bucket naming: `{prefix}-tfstates` (e.g., `staging-terragrunt-tfstates`)
+  - Prefix is defined in `{environment}/backend-config.hcl`
 - Requires environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 - MinIO endpoint: `http://minio.home.sflab.io:9000`
+- Configuration is environment-specific via `backend-config.hcl` files
 
 ### Infrastructure Catalog
 
 External module repository: `git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git`
 - Contains reusable Terraform modules for infrastructure components
 - Referenced via git source URLs in stack unit definitions
-- Version pinning recommended via `?ref=vX.Y.Z` (currently using latest from default branch)
+- Version pinning via `?ref=branch-or-tag` (currently using `?ref=feat/next` for staging stacks)
 
 ## Common Commands
 
@@ -99,6 +114,9 @@ mise run minio:setup
 # List MinIO bucket contents
 mise run minio:list
 
+# Edit encrypted secrets (SOPS)
+mise run secrets:edit
+
 # Cleanup all Terragrunt/Terraform cache directories
 mise run terragrunt:cleanup
 
@@ -107,13 +125,19 @@ mise run terragrunt:stack:apply
 
 # Interactive stack destroy (prompts for environment and stack selection)
 mise run terragrunt:stack:destroy
+
+# Interactive stack generate (prompts for environment and stack selection)
+mise run terragrunt:stack:generate
+
+# Interactive stack plan (prompts for environment and stack selection)
+mise run terragrunt:stack:plan
 ```
 
 ### Terragrunt Operations
 
 ```bash
 # Navigate to a stack directory first
-cd staging/docker-homelab-proxmox-vm
+cd staging/proxmox-docker-vm
 
 # View stack plan
 terragrunt stack run plan
@@ -144,7 +168,7 @@ terragrunt catalog
 
 ```bash
 # Navigate to a specific unit directory
-cd staging/docker-homelab-proxmox-vm/.terragrunt-stack/proxmox-vm
+cd staging/proxmox-docker-vm/.terragrunt-stack/proxmox-vm
 
 # Standard Terragrunt commands work on individual units
 terragrunt plan
@@ -166,22 +190,22 @@ MINIO_USERNAME             # MinIO admin username (for setup tasks)
 MINIO_PASSWORD             # MinIO admin password (for setup tasks)
 ```
 
-Proxmox authentication is handled via SSH agent (configured in root.hcl).
+Proxmox authentication is handled via SSH agent (configured in provider-config.hcl).
 
 ## Development Workflow
 
 ### Deploying Infrastructure (Standard Workflow)
 
 ```bash
-# 1. Deploy shared resources first (one-time or when shared resources change)
-cd staging/shared-resources
+# 1. Deploy proxmox-pool first (one-time or when pool configuration changes)
+cd staging/proxmox-pool
 terragrunt stack run apply
 
 # 2. Deploy application stacks (in any order)
-cd staging/docker-homelab-proxmox-vm
+cd staging/proxmox-docker-vm
 terragrunt stack run apply
 
-cd staging/pki-homelab-proxmox-vm
+cd staging/proxmox-pki-vm
 terragrunt stack run apply
 ```
 
@@ -197,19 +221,23 @@ terragrunt stack run apply
 **Example Stack Structure**:
 ```hcl
 locals {
+  version = "feat/next"
+
   environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
   environment_name = local.environment_vars.locals.environment_name
-  name = "my-app-${local.environment_name}"
+
+  pool_id = "pool-${local.environment_name}"
+  vm_name = "myapp-vm-${local.environment_name}"
 }
 
 unit "proxmox_vm" {
-  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm"
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
   path = "proxmox-vm"
 
   values = {
-    version = "main"
-    vm_name = "vm-myapp-${local.environment_name}"
-    pool_id = "pool-${local.environment_name}"  # References shared pool
+    version = local.version
+    vm_name = local.vm_name
+    pool_id = local.pool_id  # References shared pool
   }
 }
 ```
@@ -218,7 +246,7 @@ unit "proxmox_vm" {
 
 1. Edit `terragrunt.stack.hcl` in the stack directory
 2. Add new `unit` block with source, path, and values
-3. Units within the same stack can depend on each other using relative paths (e.g., `vm_unit_path = "../proxmox-vm"`)
+3. Units within the same stack can depend on each other using relative paths (e.g., `compute_path = "../proxmox-vm"`)
 4. Run `terragrunt stack run plan` to preview
 
 ### Modifying Infrastructure
@@ -243,12 +271,18 @@ This removes:
 
 ## Important Notes
 
-- **Shared Resources First**: Always deploy the `shared-resources` stack before application stacks in each environment
-- **Version Pinning**: Production stacks should pin catalog module versions using `?ref=vX.Y.Z` in source URLs
+- **Pool First**: Always deploy the `proxmox-pool` stack before application stacks in each environment
+- **Version Pinning**: Currently using `?ref=feat/next` for staging stacks; production stacks should use stable tags
 - **Stack vs Unit**: Most operations should be run at the stack level for consistency
-- **Generated Files**: `provider.tf` and `backend.tf` are auto-generated by Terragrunt from root.hcl
+- **Generated Files**: `provider.tf` and `backend.tf` are auto-generated by Terragrunt
+  - Provider configuration from `provider-config.hcl`
+  - Backend configuration from `root.hcl` (which reads `backend-config.hcl`)
+- **Configuration Files**:
+  - `provider-config.hcl`: Proxmox provider settings (at repository root)
+  - `dns-config.hcl`: DNS provider settings (at repository root)
+  - `backend-config.hcl`: S3 backend settings (per environment)
 - **Dependencies**:
-  - Units within a stack can reference each other using relative paths (e.g., `vm_unit_path = "../proxmox-vm"`)
+  - Units within a stack can reference each other using relative paths (e.g., `compute_path = "../proxmox-vm"`)
   - Cross-stack dependencies (like shared pools) are referenced by ID/name, not paths
 - **State Management**: Each unit gets its own state file in the S3 bucket, organized by path
 - **Proxmox Endpoint**: Currently configured for `proxmox.home.sflab.io:8006`
@@ -259,9 +293,9 @@ This removes:
 - **State backend issues**: Verify MinIO is accessible and credentials are set
 - **SSH authentication to Proxmox**: Ensure SSH agent is running with appropriate keys loaded
 - **Cache corruption**: Run `mise run terragrunt:cleanup` to remove all cache directories
-- **Resource conflicts**: If multiple stacks try to create the same resource (e.g., pool), move it to `shared-resources` stack
+- **Resource conflicts**: If multiple stacks try to create the same resource (e.g., pool), move it to `proxmox-pool` stack
 - **Unit dependencies**:
-  - Within same stack: Use relative paths (e.g., `vm_unit_path = "../proxmox-vm"`)
+  - Within same stack: Use relative paths (e.g., `compute_path = "../proxmox-vm"`)
   - Across stacks: Reference by ID/name (e.g., `pool_id = "pool-staging"`)
 - **Command not found**: Use `terragrunt stack run <command>` not `terragrunt stack <command>`
 
@@ -269,17 +303,18 @@ This removes:
 
 ### Current Staging Stacks
 
-1. **shared-resources** (`staging/shared-resources/`)
-   - Purpose: Environment-wide shared resources
+1. **proxmox-pool** (`staging/proxmox-pool/`)
+   - Purpose: Proxmox resource pool for staging environment
    - Contains: `proxmox_pool` unit
-   - Deploy first
+   - Deploy first (required by other stacks)
 
-2. **docker-homelab-proxmox-vm** (`staging/docker-homelab-proxmox-vm/`)
+2. **proxmox-docker-vm** (`staging/proxmox-docker-vm/`)
    - Purpose: Docker host VM
    - Contains: `proxmox_vm`, `dns` units
-   - References: `pool-staging` from shared-resources
+   - References: `pool-staging` from proxmox-pool stack
 
-3. **pki-homelab-proxmox-vm** (`staging/pki-homelab-proxmox-vm/`)
+3. **proxmox-pki-vm** (`staging/proxmox-pki-vm/`)
    - Purpose: PKI/Certificate management VM
-   - Contains: `proxmox_vm`, `dns` units
-   - References: `pool-staging` from shared-resources
+   - Contains: `proxmox_vm` unit (dns unit currently commented out)
+   - References: `pool-staging` from proxmox-pool stack
+   - Note: Has dependency on pool unit path for direct reference

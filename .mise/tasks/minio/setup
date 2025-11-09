@@ -4,7 +4,7 @@ MINIO_HOST="minio.home.sflab.io"
 MINIO_PORT="9000"
 
 MINIO_ALIAS="myminio"
-MINIO_BUCKET_NAME="homelab-terragrunt-tfstates"
+MINIO_BUCKET_NAME="staging-terragrunt-tfstates"
 
 mc alias set $MINIO_ALIAS "http://${MINIO_HOST}:${MINIO_PORT}" $MINIO_USERNAME $MINIO_PASSWORD
 
