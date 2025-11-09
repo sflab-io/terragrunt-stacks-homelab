@@ -53,13 +53,16 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
    - Configured for SSH agent authentication
 
 3. **dns-config.hcl**: DNS provider configuration
-   - DNS server, port, and key settings for dynamic DNS updates
+   - DNS server: 192.168.1.13:5353
+   - Key settings for dynamic DNS updates (hmac-sha512)
+   - Used for automatic DNS record creation for VMs
 
 4. **environment.hcl**: Environment-specific variables (e.g., `environment_name = "staging"`)
 
 5. **backend-config.hcl**: Environment-specific backend configuration
    - Defines S3 backend prefix, endpoint, and credentials
    - Located in each environment directory
+   - Note: Currently only configured for staging environment
 
 6. **terragrunt.stack.hcl**: Stack definition with multiple units
    - Each unit references a module from the catalog
@@ -99,6 +102,11 @@ External module repository: `git@github.com:abes140377/terragrunt-infrastructure
 - Contains reusable Terraform modules for infrastructure components
 - Referenced via git source URLs in stack unit definitions
 - Version pinning via `?ref=branch-or-tag` (currently using `?ref=feat/next` for staging stacks)
+
+**Available Units** (as used in current stacks):
+- `proxmox-pool`: Proxmox resource pool management
+- `proxmox-vm`: Proxmox virtual machine provisioning
+- `dns`: Dynamic DNS record creation (depends on compute_path)
 
 ## Common Commands
 
@@ -228,6 +236,7 @@ locals {
 
   pool_id = "pool-${local.environment_name}"
   vm_name = "myapp-vm-${local.environment_name}"
+  zone = "home.sflab.io."
 }
 
 unit "proxmox_vm" {
@@ -238,6 +247,18 @@ unit "proxmox_vm" {
     version = local.version
     vm_name = local.vm_name
     pool_id = local.pool_id  # References shared pool
+  }
+}
+
+unit "dns" {
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
+  path = "dns"
+
+  values = {
+    version = local.version
+    zone = local.zone
+    name = local.vm_name
+    compute_path = "../proxmox-vm"  # References VM unit in same stack
   }
 }
 ```
@@ -285,7 +306,7 @@ This removes:
   - Units within a stack can reference each other using relative paths (e.g., `compute_path = "../proxmox-vm"`)
   - Cross-stack dependencies (like shared pools) are referenced by ID/name, not paths
 - **State Management**: Each unit gets its own state file in the S3 bucket, organized by path
-- **Proxmox Endpoint**: Currently configured for `proxmox.home.sflab.io:8006`
+- **Proxmox Endpoint**: Currently configured for `https://proxmox.home.sflab.io:8006/`
 - **Cache Directories**: `.terragrunt-stack/` and `.terragrunt-cache/` are generated and should not be committed to git
 
 ## Troubleshooting
@@ -312,9 +333,10 @@ This removes:
    - Purpose: Docker host VM
    - Contains: `proxmox_vm`, `dns` units
    - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
 
 3. **proxmox-pki-vm** (`staging/proxmox-pki-vm/`)
    - Purpose: PKI/Certificate management VM
-   - Contains: `proxmox_vm` unit (dns unit currently commented out)
+   - Contains: `proxmox_vm`, `dns` units
    - References: `pool-staging` from proxmox-pool stack
-   - Note: Has dependency on pool unit path for direct reference
+   - DNS zone: `home.sflab.io.`
