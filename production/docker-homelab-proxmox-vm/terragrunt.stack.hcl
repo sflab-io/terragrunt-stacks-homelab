@@ -41,7 +41,6 @@ unit "proxmox_vm" {
 
     vm_name        = "vm-docker-${local.environment_name}"
     pool_id        = "pool-${local.environment_name}"
-    pool_unit_path = "../proxmox-pool"
   }
 }
 

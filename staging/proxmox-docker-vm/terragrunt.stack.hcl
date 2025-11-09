@@ -25,8 +25,6 @@ unit "proxmox_vm" {
 
     vm_name = local.vm_name
     pool_id = local.pool_id
-
-    # pool_unit_path = "../proxmox-pool"
   }
 }
 
