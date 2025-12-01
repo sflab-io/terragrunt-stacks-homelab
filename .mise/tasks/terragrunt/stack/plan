@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
-set -e
-
 #USAGE arg "<env>" help="The environment to use" default=""
 #USAGE arg "<target>" help="The target unit" default=""
 #USAGE flag "-d --dry-run" help="Show the commands without executing it"
+
+#MISE raw=true
+
+set -e
 
 if [[ -z "${usage_env:-}" ]]; then
   ENVIRONMENT=$(gum choose "staging" "production")
