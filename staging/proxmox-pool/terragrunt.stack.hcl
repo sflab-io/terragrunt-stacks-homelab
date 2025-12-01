@@ -1,5 +1,5 @@
 locals {
-  version = "feat/next"
+  version = "main"
 
   # Load environment variables
   environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))

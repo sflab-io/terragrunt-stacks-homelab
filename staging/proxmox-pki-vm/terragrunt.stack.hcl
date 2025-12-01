@@ -1,5 +1,5 @@
 locals {
-  version = "feat/next"
+  version = "main"
 
   # Load environment variables
   environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
@@ -13,6 +13,9 @@ locals {
   vm_name = "pki-vm-${local.environment_name}"
 
   zone = "home.sflab.io."
+
+  # SSH public key path for Ansible access
+  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/ansible_id_ecdsa.pub"
 }
 
 unit "proxmox_vm" {
@@ -23,8 +26,18 @@ unit "proxmox_vm" {
   values = {
     version = local.version
 
-    vm_name = local.vm_name
-    pool_id = local.pool_id
+    env     = local.environment_name
+    app     = "pki"
+
+    vm_name             = local.vm_name
+    pool_id             = local.pool_id
+    ssh_public_key_path = local.ssh_public_key_path
+    network_config = {
+      type        = "static"
+      ip_address  = "192.168.1.33"
+      cidr        = 24
+      gateway     = "192.168.1.1"
+    }
   }
 }
 
