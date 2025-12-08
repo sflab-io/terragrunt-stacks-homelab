@@ -8,10 +8,21 @@ This is a **Terragrunt infrastructure-live repository** for managing homelab inf
 - **Terragrunt Stacks** for organizing infrastructure deployments
 - **MinIO** as an S3-compatible backend for Terraform state storage
 - **Proxmox** as the target infrastructure platform
+- **mise** for tool version management and task automation
 - Environment-based organization (staging, production)
 
 The repository follows Terragrunt's "infrastructure-live" pattern where configurations reference reusable modules from a separate "infrastructure-catalog" repository.
 The local catalog repository is located at: `../terragrunt-infrastructure-catalog-homelab/`
+
+### Required Tools (Managed by mise)
+
+The following tools are automatically installed and managed via `mise.toml`:
+- **Go**: 1.24.2
+- **OpenTofu**: 1.9.0
+- **Terragrunt**: 0.78.0
+- **mc (MinIO Client)**: latest
+
+Run `mise install` to install all required tools, or simply enter the directory (mise will auto-install via hooks).
 
 ## Key Architecture Concepts
 
@@ -21,6 +32,8 @@ The local catalog repository is located at: `../terragrunt-infrastructure-catalo
 ├── root.hcl                    # Root Terragrunt config: remote state, catalog URLs
 ├── provider-config.hcl         # Proxmox provider configuration
 ├── dns-config.hcl              # DNS provider configuration
+├── keys/                       # SSH public keys for VM access
+│   └── ansible_id_ecdsa.pub    # Ansible SSH public key
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
 │   ├── backend-config.hcl      # Environment-specific backend configuration
@@ -62,7 +75,7 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
 5. **backend-config.hcl**: Environment-specific backend configuration
    - Defines S3 backend prefix, endpoint, and credentials
    - Located in each environment directory
-   - Note: Currently only configured for staging environment
+   - Configured for both staging and production environments
 
 6. **terragrunt.stack.hcl**: Stack definition with multiple units
    - Each unit references a module from the catalog
@@ -122,9 +135,6 @@ mise run minio:setup
 # List MinIO bucket contents
 mise run minio:list
 
-# Edit encrypted secrets (SOPS)
-mise run secrets:edit
-
 # Cleanup all Terragrunt/Terraform cache directories
 mise run terragrunt:cleanup
 
@@ -140,6 +150,8 @@ mise run terragrunt:stack:generate
 # Interactive stack plan (prompts for environment and stack selection)
 mise run terragrunt:stack:plan
 ```
+
+**Note**: The `secrets:edit` task has been removed from mise tasks.
 
 ### Terragrunt Operations
 
@@ -162,11 +174,14 @@ terragrunt stack run destroy
 # Destroy stack resources (auto-approve, no confirmation)
 terragrunt stack run destroy -- --auto-approve
 
-# View stack dependencies
-terragrunt stack graph
-
 # Generate stack without applying
 terragrunt stack generate
+
+# View stack outputs
+terragrunt stack output
+
+# Clean generated stack files
+terragrunt stack clean
 
 # Browse available catalog modules
 terragrunt catalog
@@ -197,6 +212,11 @@ AWS_SECRET_ACCESS_KEY      # MinIO secret key for state backend
 MINIO_USERNAME             # MinIO admin username (for setup tasks)
 MINIO_PASSWORD             # MinIO admin password (for setup tasks)
 ```
+
+**Note**: Environment variables are loaded automatically from:
+- `~/.env` (optional, user home directory)
+- `.env` (optional, project root)
+- `.creds.env.yaml` (encrypted with SOPS, project root)
 
 Proxmox authentication is handled via SSH agent (configured in provider-config.hcl).
 
@@ -237,6 +257,9 @@ locals {
   pool_id = "pool-${local.environment_name}"
   vm_name = "myapp-vm-${local.environment_name}"
   zone = "home.sflab.io."
+
+  # SSH public key path for Ansible access
+  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/ansible_id_ecdsa.pub"
 }
 
 unit "proxmox_vm" {
@@ -245,8 +268,26 @@ unit "proxmox_vm" {
 
   values = {
     version = local.version
-    vm_name = local.vm_name
-    pool_id = local.pool_id  # References shared pool
+
+    env     = local.environment_name
+    app     = "myapp"
+
+    vm_name             = local.vm_name
+    pool_id             = local.pool_id  # References shared pool
+    ssh_public_key_path = local.ssh_public_key_path
+
+    # Example: DHCP network configuration
+    network_config = {
+      type = "dhcp"
+    }
+
+    # Example: Static IP configuration
+    # network_config = {
+    #   type        = "static"
+    #   ip_address  = "192.168.1.50"
+    #   cidr        = 24
+    #   gateway     = "192.168.1.1"
+    # }
   }
 }
 
@@ -293,7 +334,7 @@ This removes:
 ## Important Notes
 
 - **Pool First**: Always deploy the `proxmox-pool` stack before application stacks in each environment
-- **Version Pinning**: Currently using `?ref=main` for staging stacks; production stacks should use stable tags
+- **Version Pinning**: Currently using `?ref=main` for both staging and production stacks
 - **Stack vs Unit**: Most operations should be run at the stack level for consistency
 - **Generated Files**: `provider.tf` and `backend.tf` are auto-generated by Terragrunt
   - Provider configuration from `provider-config.hcl`
@@ -334,9 +375,34 @@ This removes:
    - Contains: `proxmox_vm`, `dns` units
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
+   - Network: DHCP
 
 3. **proxmox-pki-vm** (`staging/proxmox-pki-vm/`)
    - Purpose: PKI/Certificate management VM
    - Contains: `proxmox_vm`, `dns` units
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+
+### Current Production Stacks
+
+1. **proxmox-pool** (`production/proxmox-pool/`)
+   - Purpose: Proxmox resource pool for production environment
+   - Contains: `proxmox_pool` unit
+   - Deploy first (required by other stacks)
+
+2. **proxmox-docker-vm** (`production/proxmox-docker-vm/`)
+   - Purpose: Docker host VM (production)
+   - Contains: `proxmox_vm`, `dns` units
+   - References: `pool-production` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+   - SSH key: `keys/ansible_id_ecdsa.pub`
+
+3. **proxmox-pki-vm** (`production/proxmox-pki-vm/`)
+   - Purpose: PKI/Certificate management VM (production)
+   - Contains: `proxmox_vm`, `dns` units
+   - References: `pool-production` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: Static IP (192.168.1.33/24, gateway 192.168.1.1)
+   - SSH key: `keys/ansible_id_ecdsa.pub`
