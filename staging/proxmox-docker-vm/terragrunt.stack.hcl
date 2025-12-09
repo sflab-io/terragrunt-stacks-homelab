@@ -10,8 +10,7 @@ locals {
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  vm_name = "docker-vm-${local.environment_name}"
-
+  app = "docker"
   zone = "home.sflab.io."
 
   # SSH public key path for Ansible access
@@ -27,9 +26,8 @@ unit "proxmox_vm" {
     version = local.version
 
     env     = local.environment_name
-    app     = "docker"
+    app     = local.app
 
-    vm_name             = local.vm_name
     pool_id             = local.pool_id
     ssh_public_key_path = local.ssh_public_key_path
     network_config = {
@@ -46,8 +44,10 @@ unit "dns" {
   values = {
     version = local.version
 
+    env     = local.environment_name
+    app     = local.app
+
     zone          = local.zone
-    name          = local.vm_name
 
     compute_path  = "../proxmox-vm"
   }
