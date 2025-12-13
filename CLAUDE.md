@@ -33,7 +33,8 @@ Run `mise install` to install all required tools, or simply enter the directory 
 ├── provider-config.hcl         # Proxmox provider configuration
 ├── dns-config.hcl              # DNS provider configuration
 ├── keys/                       # SSH public keys for VM access
-│   └── ansible_id_ecdsa.pub    # Ansible SSH public key
+│   ├── ansible_id_ecdsa.pub    # Ansible SSH public key
+│   └── admin_id_ecdsa.pub      # Admin SSH public key
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
 │   ├── backend-config.hcl      # Environment-specific backend configuration
@@ -363,6 +364,17 @@ This removes:
   - Within same stack: Use relative paths (e.g., `compute_path = "../proxmox-vm"`)
   - Across stacks: Reference by ID/name (e.g., `pool_id = "pool-staging"`)
 - **Command not found**: Use `terragrunt stack run <command>` not `terragrunt stack <command>`
+- **Multiple VMs getting same IP address (DHCP)**:
+  - Root cause: VMs cloned from same template share the same `/etc/machine-id`
+  - DHCP client uses machine-id to generate client identifier, causing IP conflicts
+  - Solution: Template must have empty `/etc/machine-id` (regenerated on first boot)
+  - Template provisioner should include:
+    ```bash
+    truncate -s 0 /etc/machine-id
+    rm /var/lib/dbus/machine-id
+    ln -s /etc/machine-id /var/lib/dbus/machine-id
+    ```
+  - See: `homelab-packer-templates/ubuntu-24.04.pkrvars.hcl` for reference
 
 ## Example Stacks
 
@@ -381,12 +393,22 @@ This removes:
    - Network: DHCP
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-3. **proxmox-pki-vm** (`staging/proxmox-pki-vm/`)
-   - Purpose: PKI/Certificate management VM
+3. **proxmox-k3s-vms** (`staging/proxmox-k3s-vms/`)
+   - Purpose: K3s Kubernetes cluster VMs (control plane and worker nodes)
+   - Contains: `vm_cp1`, `dns_cp1`, `vm_w1`, `dns_w1` units
+   - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+   - SSH key: `keys/admin_id_ecdsa.pub`
+   - Note: Uses admin SSH key instead of ansible key
+
+4. **proxmox-vault-vm** (`staging/proxmox-vault-vm/`)
+   - Purpose: HashiCorp Vault VM for secrets management
    - Contains: `proxmox_vm`, `dns` units
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: Static IP (192.168.1.33/24, gateway 192.168.1.1)
+   - DNS servers: 192.168.1.13, 192.168.1.14
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 ### Current Production Stacks
