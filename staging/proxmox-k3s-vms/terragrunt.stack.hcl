@@ -125,38 +125,38 @@ unit "dns_cp1" {
 #   }
 # }
 
-# unit "vm_w1" {
-#   source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
+unit "vm_w1" {
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
 
-#   path = "${local.app}-w1"
+  path = "${local.app}-w1"
 
-#   values = {
-#     version = local.version
+  values = {
+    version = local.version
 
-#     env = local.environment_name
-#     app = "${local.app}-w1"
+    env = local.environment_name
+    app = "${local.app}-w1"
 
-#     pool_id = local.pool_id
-#     ssh_public_key_path = local.ssh_public_key_path
-#     network_config = {
-#       type = "dhcp"
-#     }
-#   }
-# }
+    pool_id = local.pool_id
+    ssh_public_key_path = local.ssh_public_key_path
+    network_config = {
+      type = "dhcp"
+    }
+  }
+}
 
-# unit "dns_w1" {
-#   source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
+unit "dns_w1" {
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
 
-#   path = "dns-w1"
+  path = "dns-w1"
 
-#   values = {
-#     version = local.version
+  values = {
+    version = local.version
 
-#     env = local.environment_name
-#     app = "${local.app}-w1"
+    env = local.environment_name
+    app = "${local.app}-w1"
 
-#     zone = local.zone
+    zone = local.zone
 
-#     compute_path = "../${local.app}-w1"
-#   }
-# }
+    compute_path = "../${local.app}-w1"
+  }
+}
