@@ -47,13 +47,14 @@ unit "dns" {
   path = "dns"
 
   values = {
-    version = local.version
+    version  = local.version
 
-    env     = local.environment_name
-    app     = local.app
+    env      = local.environment_name
+    app      = local.app
+    wildcard = true
 
-    zone          = local.zone
+    zone = local.zone
 
-    compute_path  = "../proxmox-vm"
+    compute_path = "../proxmox-vm"
   }
 }

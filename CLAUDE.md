@@ -273,10 +273,9 @@ unit "proxmox_vm" {
   values = {
     version = local.version
 
-    env     = local.environment_name
-    app     = "myapp"
+    env = local.environment_name
+    app = "myapp"
 
-    vm_name             = local.vm_name
     pool_id             = local.pool_id  # References shared pool
     ssh_public_key_path = local.ssh_public_key_path
 
@@ -301,8 +300,12 @@ unit "dns" {
 
   values = {
     version = local.version
+
+    env  = local.environment_name
+    app  = "myapp"
+
     zone = local.zone
-    name = local.vm_name
+
     compute_path = "../proxmox-vm"  # References VM unit in same stack
   }
 }

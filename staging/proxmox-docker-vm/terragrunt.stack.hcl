@@ -25,13 +25,13 @@ unit "proxmox_vm" {
   values = {
     version = local.version
 
-    env     = local.environment_name
-    app     = local.app
+    env = local.environment_name
+    app = local.app
 
-    pool_id             = local.pool_id
+    pool_id = local.pool_id
     ssh_public_key_path = local.ssh_public_key_path
     network_config = {
-      type        = "dhcp"
+      type = "dhcp"
     }
   }
 }
@@ -44,11 +44,11 @@ unit "dns" {
   values = {
     version = local.version
 
-    env     = local.environment_name
-    app     = local.app
+    env = local.environment_name
+    app = local.app
 
-    zone          = local.zone
+    zone = local.zone
 
-    compute_path  = "../proxmox-vm"
+    compute_path = "../proxmox-vm"
   }
 }
