@@ -49,9 +49,15 @@ unit "dns" {
   values = {
     version = local.version
 
-    zone          = local.zone
-    name          = local.vm_name
+    env = local.environment_name
+    app = "pki"
 
-    compute_path  = "../proxmox-vm"
+    record_types = {
+      normal   = true
+      wildcard = false
+    }
+    zone = local.zone
+
+    compute_path = "../proxmox-vm"
   }
 }

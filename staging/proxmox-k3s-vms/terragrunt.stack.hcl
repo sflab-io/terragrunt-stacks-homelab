@@ -47,6 +47,10 @@ unit "dns_cp1" {
     env = local.environment_name
     app = "${local.app}-cp1"
 
+    record_types = {
+      normal   = true
+      wildcard = false
+    }
     zone = local.zone
 
     compute_path = "../${local.app}-cp1"
@@ -155,6 +159,10 @@ unit "dns_w1" {
     env = local.environment_name
     app = "${local.app}-w1"
 
+    record_types = {
+      normal   = true
+      wildcard = false
+    }
     zone = local.zone
 
     compute_path = "../${local.app}-w1"
