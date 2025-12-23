@@ -10,8 +10,7 @@ locals {
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  vm_name = "docker-vm-${local.environment_name}"
-
+  app = "docker"
   zone = "home.sflab.io."
 
   # SSH public key path for Ansible access
@@ -26,15 +25,14 @@ unit "proxmox_vm" {
   values = {
     version = local.version
 
-    env     = local.environment_name
-    app     = "docker"
+    env = local.environment_name
+    app = local.app
 
-    vm_name             = local.vm_name
-    pool_id             = local.pool_id
+    pool_id = local.pool_id
     ssh_public_key_path = local.ssh_public_key_path
-    network_config = {
-      type        = "dhcp"
-    }
+    # network_config = {
+    #   type = "dhcp"
+    # }
   }
 }
 
@@ -47,11 +45,11 @@ unit "dns" {
     version = local.version
 
     env = local.environment_name
-    app = "docker"
+    app = local.app
 
     record_types = {
       normal   = true
-      wildcard = false
+      wildcard = true
     }
     zone = local.zone
 

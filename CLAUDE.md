@@ -434,5 +434,5 @@ This removes:
    - Contains: `proxmox_vm`, `dns` units
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: Static IP (192.168.1.33/24, gateway 192.168.1.1)
+   - Network: Static IP (192.168.1.34/24, gateway 192.168.1.1)
    - SSH key: `keys/ansible_id_ecdsa.pub`
