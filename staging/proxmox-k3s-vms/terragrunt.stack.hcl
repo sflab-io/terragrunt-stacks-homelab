@@ -36,6 +36,7 @@ unit "vm_cp1" {
     cores  = local.cores
 
     pool_id = local.pool_id
+
     ssh_public_key_path = local.ssh_public_key_path
     # network_config = {
     #   type = "dhcp"

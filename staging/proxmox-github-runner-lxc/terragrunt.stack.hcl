@@ -10,29 +10,30 @@ locals {
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  app = "docker"
+  app = "github-runner"
   zone = "home.sflab.io."
 
+  password = get_env("PROXMOX_CONTAINER_PASSWORD", "")
+
   # SSH public key path for Ansible access
-  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/ansible_id_ecdsa.pub"
+  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/admin_id_ecdsa.pub"
 }
 
-unit "proxmox_vm" {
-  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
+unit "proxmox_lxc" {
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.version}"
 
-  path = "proxmox-vm"
+  path = "proxmox-lxc"
 
   values = {
     version = local.version
 
-    env = local.environment_name
-    app = local.app
+    env      = local.environment_name
+    app      = local.app
+    password = local.password
 
     pool_id = local.pool_id
+
     ssh_public_key_path = local.ssh_public_key_path
-    # network_config = {
-    #   type = "dhcp"
-    # }
   }
 }
 
@@ -49,10 +50,10 @@ unit "dns" {
 
     record_types = {
       normal   = true
-      wildcard = true
+      wildcard = false
     }
     zone = local.zone
 
-    compute_path = "../proxmox-vm"
+    compute_path = "../proxmox-lxc"
   }
 }
