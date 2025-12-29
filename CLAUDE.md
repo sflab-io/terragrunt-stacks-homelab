@@ -120,6 +120,7 @@ External module repository: `git@github.com:abes140377/terragrunt-infrastructure
 **Available Units** (as used in current stacks):
 - `proxmox-pool`: Proxmox resource pool management
 - `proxmox-vm`: Proxmox virtual machine provisioning
+- `proxmox-lxc`: Proxmox LXC container provisioning
 - `dns`: Dynamic DNS record creation (depends on compute_path)
 
 ## Common Commands
@@ -150,6 +151,9 @@ mise run terragrunt:stack:generate
 
 # Interactive stack plan (prompts for environment and stack selection)
 mise run terragrunt:stack:plan
+
+# Interactive stack output (prompts for environment and stack selection)
+mise run terragrunt:stack:output
 
 # Edit SOPS-encrypted secrets file
 mise run secrets:edit .creds.env.yaml
@@ -215,6 +219,7 @@ AWS_ACCESS_KEY_ID          # MinIO access key for state backend
 AWS_SECRET_ACCESS_KEY      # MinIO secret key for state backend
 MINIO_USERNAME             # MinIO admin username (for setup tasks)
 MINIO_PASSWORD             # MinIO admin password (for setup tasks)
+PROXMOX_CONTAINER_PASSWORD # Password for LXC containers (for container stacks)
 ```
 
 **Note**: Environment variables are loaded automatically from:
@@ -250,7 +255,7 @@ terragrunt stack run apply
 5. Run `terragrunt stack run plan` to preview changes
 6. Run `terragrunt stack run apply` to deploy
 
-**Example Stack Structure**:
+**Example VM Stack Structure**:
 ```hcl
 locals {
   version = "main"
@@ -307,6 +312,61 @@ unit "dns" {
     zone = local.zone
 
     compute_path = "../proxmox-vm"  # References VM unit in same stack
+  }
+}
+```
+
+**Example LXC Container Stack Structure**:
+```hcl
+locals {
+  version = "main"
+
+  environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
+  environment_name = local.environment_vars.locals.environment_name
+
+  pool_id = "pool-${local.environment_name}"
+  app = "my-runner"
+  zone = "home.sflab.io."
+
+  password = get_env("PROXMOX_CONTAINER_PASSWORD", "")
+
+  # SSH public key path for admin/service access
+  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/admin_id_ecdsa.pub"
+}
+
+unit "proxmox_lxc" {
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.version}"
+  path = "proxmox-lxc"
+
+  values = {
+    version = local.version
+
+    env      = local.environment_name
+    app      = local.app
+    password = local.password
+
+    pool_id             = local.pool_id  # References shared pool
+    ssh_public_key_path = local.ssh_public_key_path
+  }
+}
+
+unit "dns" {
+  source = "git::git@github.com:abes140377/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
+  path = "dns"
+
+  values = {
+    version = local.version
+
+    env = local.environment_name
+    app = local.app
+
+    record_types = {
+      normal   = true
+      wildcard = false
+    }
+    zone = local.zone
+
+    compute_path = "../proxmox-lxc"  # References LXC unit in same stack
   }
 }
 ```
@@ -414,6 +474,15 @@ This removes:
    - DNS servers: 192.168.1.13, 192.168.1.14
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
+5. **proxmox-github-runner-lxc** (`staging/proxmox-github-runner-lxc/`)
+   - Purpose: GitHub Actions runner LXC container
+   - Contains: `proxmox_lxc`, `dns` units
+   - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+   - SSH key: `keys/admin_id_ecdsa.pub`
+   - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
+
 ### Current Production Stacks
 
 1. **proxmox-pool** (`production/proxmox-pool/`)
@@ -429,10 +498,29 @@ This removes:
    - Network: DHCP
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-3. **proxmox-pki-vm** (`production/proxmox-pki-vm/`)
-   - Purpose: PKI/Certificate management VM (production)
+3. **proxmox-k3s-vms** (`production/proxmox-k3s-vms/`)
+   - Purpose: K3s Kubernetes cluster VMs (control plane and worker nodes)
+   - Contains: `vm_cp1`, `dns_cp1`, `vm_w1`, `dns_w1`, `vm_w2`, `dns_w2` units
+   - References: `pool-production` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+   - SSH key: `keys/admin_id_ecdsa.pub`
+   - Note: Production has 3 nodes (1 control plane, 2 workers) vs staging with 2 nodes
+
+4. **proxmox-vault-vm** (`production/proxmox-vault-vm/`)
+   - Purpose: HashiCorp Vault VM for secrets management (production)
    - Contains: `proxmox_vm`, `dns` units
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: Static IP (192.168.1.34/24, gateway 192.168.1.1)
+   - DNS servers: 192.168.1.13, 192.168.1.14
    - SSH key: `keys/ansible_id_ecdsa.pub`
+
+5. **proxmox-gitlab-runner-lxc** (`production/proxmox-gitlab-runner-lxc/`)
+   - Purpose: GitLab CI runner LXC container
+   - Contains: `proxmox_lxc`, `dns` units
+   - References: `pool-production` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+   - SSH key: `keys/admin_id_ecdsa.pub`
+   - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
