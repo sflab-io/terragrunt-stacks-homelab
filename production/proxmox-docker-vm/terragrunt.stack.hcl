@@ -44,8 +44,8 @@ unit "dns" {
   values = {
     version = local.version
 
-    env = local.environment_name
     app = local.app
+    env = local.environment_name
 
     record_types = {
       normal   = true
