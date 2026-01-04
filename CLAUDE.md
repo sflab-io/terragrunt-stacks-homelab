@@ -328,8 +328,6 @@ locals {
   app = "my-runner"
   zone = "home.sflab.io."
 
-  password = get_env("PROXMOX_CONTAINER_PASSWORD", "")
-
   # SSH public key path for admin/service access
   ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/admin_id_ecdsa.pub"
 }
@@ -343,7 +341,6 @@ unit "proxmox_lxc" {
 
     env      = local.environment_name
     app      = local.app
-    password = local.password
 
     pool_id             = local.pool_id  # References shared pool
     ssh_public_key_path = local.ssh_public_key_path

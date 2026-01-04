@@ -10,10 +10,8 @@ locals {
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  app = "github-runner"
+  app  = "github-runner"
   zone = "home.sflab.io."
-
-  password = get_env("PROXMOX_CONTAINER_PASSWORD", "")
 
   # SSH public key path for Ansible access
   ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/admin_id_ecdsa.pub"
@@ -27,9 +25,14 @@ unit "proxmox_lxc" {
   values = {
     version = local.version
 
-    env      = local.environment_name
-    app      = local.app
-    password = local.password
+    app = local.app
+    env = local.environment_name
+
+    network_config = {
+      type        = "dhcp"
+      dns_servers = ["192.168.1.13", "192.168.1.14"]
+      domain      = "home.sflab.io"
+    }
 
     pool_id = local.pool_id
 
