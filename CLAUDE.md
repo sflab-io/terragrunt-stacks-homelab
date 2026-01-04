@@ -104,7 +104,7 @@ The repository uses a **proxmox-pool** stack pattern for environment-wide resour
 ### Remote State Backend
 
 - Uses **MinIO** as S3-compatible backend
-- Bucket naming: `{prefix}-tfstates` (e.g., `staging-terragrunt-tfstates`)
+- Bucket naming: `{prefix}-tfstates` (e.g., `staging-tfstates`, `production-tfstates`)
   - Prefix is defined in `{environment}/backend-config.hcl`
 - Requires environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 - MinIO endpoint: `http://minio.home.sflab.io:9000`
@@ -342,6 +342,12 @@ unit "proxmox_lxc" {
     env      = local.environment_name
     app      = local.app
 
+    network_config = {
+      type        = "dhcp"
+      dns_servers = ["192.168.1.13", "192.168.1.14"]
+      domain      = "home.sflab.io"
+    }
+
     pool_id             = local.pool_id  # References shared pool
     ssh_public_key_path = local.ssh_public_key_path
   }
@@ -476,7 +482,7 @@ This removes:
    - Contains: `proxmox_lxc`, `dns` units
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP
+   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.14) and domain (home.sflab.io)
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
@@ -513,11 +519,11 @@ This removes:
    - DNS servers: 192.168.1.13, 192.168.1.14
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-5. **proxmox-gitlab-runner-lxc** (`production/proxmox-gitlab-runner-lxc/`)
-   - Purpose: GitLab CI runner LXC container
+5. **proxmox-github-runner-lxc** (`production/proxmox-github-runner-lxc/`)
+   - Purpose: GitHub Actions runner LXC container
    - Contains: `proxmox_lxc`, `dns` units
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP
+   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.14) and domain (home.sflab.io)
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
