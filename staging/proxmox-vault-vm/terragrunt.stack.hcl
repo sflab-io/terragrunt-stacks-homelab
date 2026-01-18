@@ -33,7 +33,7 @@ unit "proxmox_vm" {
       ip_address  = "192.168.1.33"
       cidr        = 24
       gateway     = "192.168.1.1"
-      dns_servers = ["192.168.1.13", "192.168.1.14"]
+      dns_servers = ["192.168.1.13", "192.168.1.154"]
       domain      = "home.sflab.io"
     }
 

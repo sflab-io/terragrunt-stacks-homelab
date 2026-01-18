@@ -7,10 +7,14 @@ locals {
   # Extract variables we need for easy access
   environment_name = local.environment_vars.locals.environment_name
 
+  # default VM specs
+  memory = 2048
+  cores  = 2
+
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  app  = "github-runner"
+  app = "technitium-dns-secondary"
   zone = "home.sflab.io."
 
   # SSH public key path for Ansible access
@@ -25,38 +29,19 @@ unit "proxmox_lxc" {
   values = {
     version = local.version
 
-    app = local.app
+    app = "${local.app}"
     env = local.environment_name
 
     network_config = {
-      type        = "dhcp"
-      dns_servers = ["192.168.1.13", "192.168.1.154"]
-      domain      = "home.sflab.io"
+      type        = "static"
+      ip_address  = "192.168.1.154"
+      cidr        = 24
+      gateway     = "192.168.1.1"
+      dns_servers = ["192.168.1.1"]
     }
 
     pool_id = local.pool_id
 
     ssh_public_key_path = local.ssh_public_key_path
-  }
-}
-
-unit "dns" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
-
-  path = "dns"
-
-  values = {
-    version = local.version
-
-    app = local.app
-    env = local.environment_name
-
-    record_types = {
-      normal   = true
-      wildcard = false
-    }
-    zone = local.zone
-
-    compute_path = "../proxmox-lxc"
   }
 }

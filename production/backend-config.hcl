@@ -2,7 +2,8 @@ locals {
   prefix  = "production-terragrunt"
 
   region = "eu-central-1"
-  endpoint  = "http://minio.home.sflab.io:9000"
+  endpoint  = "http://192.168.1.20:9000"
+  # endpoint  = "http://minio.home.sflab.io:9000"
   skip_credentials_validation = true
   force_path_style = true
   access_key = get_env("AWS_ACCESS_KEY_ID")

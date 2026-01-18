@@ -5,7 +5,8 @@
 # ---------------------------------------------------------------------------------------------------------------------
 
 locals {
-  proxmox_endpoint = "https://proxmox.home.sflab.io:8006/"
+  # proxmox_endpoint = "https://proxmox.home.sflab.io:8006/"
+  proxmox_endpoint = "https://192.168.1.12:8006/"
 }
 
 # Generate Proxmox provider block

@@ -67,8 +67,8 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
    - Configured for SSH agent authentication
 
 3. **dns-config.hcl**: DNS provider configuration
-   - DNS server: 192.168.1.13:5353
-   - Key settings for dynamic DNS updates (hmac-sha512)
+   - DNS server: 192.168.1.13:53
+   - Key settings for dynamic DNS updates (hmac-sha256)
    - Used for automatic DNS record creation for VMs
 
 4. **environment.hcl**: Environment-specific variables (e.g., `environment_name = "staging"`)
@@ -344,7 +344,7 @@ unit "proxmox_lxc" {
 
     network_config = {
       type        = "dhcp"
-      dns_servers = ["192.168.1.13", "192.168.1.14"]
+      dns_servers = ["192.168.1.13", "192.168.1.154"]
       domain      = "home.sflab.io"
     }
 
@@ -474,7 +474,7 @@ This removes:
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: Static IP (192.168.1.33/24, gateway 192.168.1.1)
-   - DNS servers: 192.168.1.13, 192.168.1.14
+   - DNS servers: 192.168.1.13, 192.168.1.154
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 5. **proxmox-github-runner-lxc** (`staging/proxmox-github-runner-lxc/`)
@@ -482,7 +482,7 @@ This removes:
    - Contains: `proxmox_lxc`, `dns` units
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.14) and domain (home.sflab.io)
+   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.154) and domain (home.sflab.io)
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
@@ -516,7 +516,7 @@ This removes:
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: Static IP (192.168.1.34/24, gateway 192.168.1.1)
-   - DNS servers: 192.168.1.13, 192.168.1.14
+   - DNS servers: 192.168.1.13, 192.168.1.154
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 5. **proxmox-github-runner-lxc** (`production/proxmox-github-runner-lxc/`)
@@ -524,6 +524,6 @@ This removes:
    - Contains: `proxmox_lxc`, `dns` units
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.14) and domain (home.sflab.io)
+   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.154) and domain (home.sflab.io)
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
