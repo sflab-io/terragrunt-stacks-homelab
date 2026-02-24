@@ -10,8 +10,11 @@ locals {
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  app = "docker"
+  app = "nautobot"
   zone = "home.sflab.io."
+
+  memory    = 4096
+  disk_size = 16
 
   # SSH public key path for Ansible access
   ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/ansible_id_ecdsa.pub"
@@ -27,6 +30,17 @@ unit "proxmox_vm" {
 
     app = local.app
     env = local.environment_name
+
+    network_config = {
+      type        = "static"
+      ip_address  = "192.168.1.89"
+      cidr        = 24
+      gateway     = "192.168.1.1"
+      dns_servers = ["192.168.1.1"]
+    }
+
+    memory    = local.memory
+    disk_size = local.disk_size
 
     pool_id = local.pool_id
 
