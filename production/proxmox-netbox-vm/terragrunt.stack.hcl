@@ -10,7 +10,7 @@ locals {
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  app = "nautobot"
+  app = "netbox"
   zone = "home.sflab.io."
 
   memory    = 4096

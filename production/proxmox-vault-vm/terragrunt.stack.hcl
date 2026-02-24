@@ -13,6 +13,8 @@ locals {
   app  = "vault"
   zone = "home.sflab.io."
 
+  memory = 4096
+
   # SSH public key path for Ansible access
   ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/ansible_id_ecdsa.pub"
 }
@@ -36,6 +38,8 @@ unit "proxmox_vm" {
       dns_servers = ["192.168.1.13", "192.168.1.154"]
       domain      = "home.sflab.io"
     }
+
+    memory = local.memory
 
     pool_id = local.pool_id
 

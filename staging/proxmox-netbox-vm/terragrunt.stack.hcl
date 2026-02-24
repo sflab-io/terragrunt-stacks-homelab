@@ -10,7 +10,7 @@ locals {
   # Use environment_name in stack name
   pool_id = "pool-${local.environment_name}"
 
-  app = "nautobot"
+  app = "netbox"
   zone = "home.sflab.io."
 
   memory    = 4096
@@ -33,7 +33,7 @@ unit "proxmox_vm" {
 
     network_config = {
       type        = "static"
-      ip_address  = "192.168.1.89"
+      ip_address  = "192.168.1.88"
       cidr        = 24
       gateway     = "192.168.1.1"
       dns_servers = ["192.168.1.13", "192.168.1.154"]

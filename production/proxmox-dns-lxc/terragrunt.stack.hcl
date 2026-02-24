@@ -37,7 +37,8 @@ unit "proxmox_lxc" {
       ip_address  = "192.168.1.154"
       cidr        = 24
       gateway     = "192.168.1.1"
-      dns_servers = ["192.168.1.1"]
+      dns_servers = ["192.168.1.13", "192.168.1.154"]
+      domain      = "home.sflab.io"
     }
 
     pool_id = local.pool_id
