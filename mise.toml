@@ -1,7 +1,7 @@
 [tools]
 go = "1.24.2"
-opentofu = "1.9.0"
-terragrunt = "0.78.0"
+opentofu = "1.11.5"
+terragrunt = "0.99.4"
 mc = "latest"
 
 [env]
@@ -12,9 +12,7 @@ _.file = [
   { path = ".env", optional = true },
   { path = ".creds.env.yaml", redact = true }
 ]
-_.path = [
-  "./scripts"
-]
+_.path = ["./scripts"]
 
 [hooks]
 enter = [
