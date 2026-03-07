@@ -25,10 +25,11 @@ unit "proxmox_vm" {
   values = {
     version = local.version
 
-    env = local.environment_name
     app = local.app
+    env = local.environment_name
 
     pool_id = local.pool_id
+
     ssh_public_key_path = local.ssh_public_key_path
   }
 }
