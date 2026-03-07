@@ -1,8 +1,24 @@
 locals {
   env       = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
+
   app       = "netbox"
+  # Optional: Customize VM resources
   memory    = 4096
   disk_size = 16
+  # Optional: Customize network configuration
+  network_config = {
+    type        = "static"
+    ip_address  = "192.168.1.89"
+    cidr        = 24
+    gateway     = "192.168.1.1"
+    dns_servers = ["192.168.1.13", "192.168.1.154"]
+    domain      = "home.sflab.io"
+  }
+  # Optional: Customize DNS record types
+  record_types = {
+    normal   = true
+    wildcard = true
+  }
 }
 
 unit "proxmox_vm" {
@@ -12,17 +28,11 @@ unit "proxmox_vm" {
 
   values = {
     version = local.env.catalog_version
-    app     = local.app
-    env     = local.env.environment_name
 
-    network_config = {
-      type        = "static"
-      ip_address  = "192.168.1.89"
-      cidr        = 24
-      gateway     = "192.168.1.1"
-      dns_servers = ["192.168.1.13", "192.168.1.154"]
-      domain      = "home.sflab.io"
-    }
+    app = local.app
+    env = local.env.environment_name
+
+    network_config = local.network_config
 
     memory    = local.memory
     disk_size = local.disk_size
@@ -39,13 +49,13 @@ unit "dns" {
 
   values = {
     version = local.env.catalog_version
-    app     = local.app
-    env     = local.env.environment_name
 
-    record_types = {
-      normal   = true
-      wildcard = true
-    }
+    app = local.app
+    env = local.env.environment_name
+
+    record_types = local.record_types
+    zone         = local.env.zone
+
     zone         = local.env.zone
     compute_path = "../proxmox-vm"
   }
