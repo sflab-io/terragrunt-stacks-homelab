@@ -1,62 +1,42 @@
 locals {
-  version = "main"
-
-  # Load environment variables
-  environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
-
-  # Extract variables we need for easy access
-  environment_name = local.environment_vars.locals.environment_name
-
-  # Use environment_name in stack name
-  pool_id = "pool-${local.environment_name}"
-
-  app  = "github-runner"
-  zone = "home.sflab.io."
-
-  # SSH public key path for Ansible access
-  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/admin_id_ecdsa.pub"
+  env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
+  app = "github-runner"
 }
 
 unit "proxmox_lxc" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.env.catalog_version}"
 
   path = "proxmox-lxc"
 
   values = {
-    version = local.version
-
-    app = local.app
-    env = local.environment_name
+    version = local.env.catalog_version
+    app     = local.app
+    env     = local.env.environment_name
 
     network_config = {
-      type        = "dhcp"
-      # dns_servers = ["192.168.1.13", "192.168.1.154"]
-      # domain      = "home.sflab.io"
+      type = "dhcp"
     }
 
-    pool_id = local.pool_id
-
-    ssh_public_key_path = local.ssh_public_key_path
+    pool_id             = local.env.pool_id
+    ssh_public_key_path = local.env.admin_ssh_public_key_path
   }
 }
 
 unit "dns" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
 
   path = "dns"
 
   values = {
-    version = local.version
-
-    app = local.app
-    env = local.environment_name
+    version = local.env.catalog_version
+    app     = local.app
+    env     = local.env.environment_name
 
     record_types = {
       normal   = true
       wildcard = false
     }
-    zone = local.zone
-
+    zone         = local.env.zone
     compute_path = "../proxmox-lxc"
   }
 }

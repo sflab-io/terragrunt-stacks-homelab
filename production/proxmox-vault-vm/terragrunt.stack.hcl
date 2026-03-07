@@ -1,34 +1,18 @@
 locals {
-  version = "main"
-
-  # Load environment variables
-  environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
-
-  # Extract variables we need for easy access
-  environment_name = local.environment_vars.locals.environment_name
-
-  # Use environment_name in stack name
-  pool_id = "pool-${local.environment_name}"
-
-  app  = "vault"
-  zone = "home.sflab.io."
-
+  env    = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
+  app    = "vault"
   memory = 4096
-
-  # SSH public key path for Ansible access
-  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/ansible_id_ecdsa.pub"
 }
 
 unit "proxmox_vm" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "proxmox-vm"
 
   values = {
-    version = local.version
-
-    app = local.app
-    env = local.environment_name
+    version = local.env.catalog_version
+    app     = local.app
+    env     = local.env.environment_name
 
     network_config = {
       type        = "static"
@@ -41,29 +25,26 @@ unit "proxmox_vm" {
 
     memory = local.memory
 
-    pool_id = local.pool_id
-
-    ssh_public_key_path = local.ssh_public_key_path
+    pool_id             = local.env.pool_id
+    ssh_public_key_path = local.env.ansible_ssh_public_key_path
   }
 }
 
 unit "dns" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
 
   path = "dns"
 
   values = {
-    version = local.version
-
-    app = local.app
-    env = local.environment_name
+    version = local.env.catalog_version
+    app     = local.app
+    env     = local.env.environment_name
 
     record_types = {
       normal   = true
       wildcard = false
     }
-    zone = local.zone
-
+    zone         = local.env.zone
     compute_path = "../proxmox-vm"
   }
 }

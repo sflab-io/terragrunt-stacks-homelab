@@ -1,36 +1,17 @@
 locals {
-  version = "main"
-
-  # Load environment variables
-  environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
-
-  # Extract variables we need for easy access
-  environment_name = local.environment_vars.locals.environment_name
-
-  # default VM specs
-  memory = 2048
-  cores  = 2
-
-  # Use environment_name in stack name
-  pool_id = "pool-${local.environment_name}"
-
+  env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
   app = "technitium-dns-secondary"
-  zone = "home.sflab.io."
-
-  # SSH public key path for Ansible access
-  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/admin_id_ecdsa.pub"
 }
 
 unit "proxmox_lxc" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.env.catalog_version}"
 
   path = "proxmox-lxc"
 
   values = {
-    version = local.version
-
-    app = "${local.app}"
-    env = local.environment_name
+    version = local.env.catalog_version
+    app     = local.app
+    env     = local.env.environment_name
 
     network_config = {
       type        = "static"
@@ -41,8 +22,7 @@ unit "proxmox_lxc" {
       domain      = "home.sflab.io"
     }
 
-    pool_id = local.pool_id
-
-    ssh_public_key_path = local.ssh_public_key_path
+    pool_id             = local.env.pool_id
+    ssh_public_key_path = local.env.admin_ssh_public_key_path
   }
 }
