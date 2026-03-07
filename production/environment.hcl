@@ -5,7 +5,8 @@ locals {
   pool_id          = "pool-${local.environment_name}"
 
   # Shared catalog configuration
-  catalog_version = "main"
+  # Pin to a specific tag for production stability. Update deliberately after testing in staging.
+  catalog_version = "v0.1.0"
   zone            = "home.sflab.io."
 
   # SSH public key paths

@@ -5,6 +5,7 @@ locals {
   pool_id          = "pool-${local.environment_name}"
 
   # Shared catalog configuration
+  # Tracks latest catalog changes. Promotes to production after validation.
   catalog_version = "main"
   zone            = "home.sflab.io."
 
