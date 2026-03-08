@@ -11,7 +11,7 @@ locals {
 }
 
 unit "vm_cp1" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "${local.app}-cp1"
 
@@ -27,7 +27,7 @@ unit "vm_cp1" {
 }
 
 unit "dns_cp1" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
 
   path = "dns-cp1"
 
@@ -43,7 +43,7 @@ unit "dns_cp1" {
 }
 
 unit "vm_w1" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "${local.app}-w1"
 
@@ -59,7 +59,7 @@ unit "vm_w1" {
 }
 
 unit "dns_w1" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
 
   path = "dns-w1"
 
@@ -75,7 +75,7 @@ unit "dns_w1" {
 }
 
 unit "vm_w2" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "${local.app}-w2"
 
@@ -91,7 +91,7 @@ unit "vm_w2" {
 }
 
 unit "dns_w2" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/dns?ref=${local.env.catalog_version}"
 
   path = "dns-w2"
 

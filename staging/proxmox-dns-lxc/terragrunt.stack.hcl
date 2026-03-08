@@ -21,7 +21,7 @@ locals {
 }
 
 unit "proxmox_lxc_1" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-lxc?ref=${local.env.catalog_version}"
 
   path = "proxmox-lxc-1"
 
@@ -39,7 +39,7 @@ unit "proxmox_lxc_1" {
 }
 
 unit "proxmox_lxc_2" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-lxc?ref=${local.env.catalog_version}"
 
   path = "proxmox-lxc-2"
 

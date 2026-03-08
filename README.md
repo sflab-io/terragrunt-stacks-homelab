@@ -197,7 +197,7 @@ terragrunt catalog                # Browse available modules
 3. Reference catalog modules:
    ```hcl
    unit "proxmox_vm" {
-     source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=main"
+     source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-vm?ref=main"
      path = "proxmox-vm"
      values = { ... }
    }

@@ -51,7 +51,7 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
 
 - **Stack**: A collection of related infrastructure units (defined in `terragrunt.stack.hcl`)
 - **Unit**: A single infrastructure component (e.g., `proxmox_pool`, `db`, `asg`)
-- **Source**: Units reference modules from the catalog repository: `git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/{unit-name}`
+- **Source**: Units reference modules from the catalog repository: `git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/{unit-name}`
 - **Path**: Where the unit is deployed within the `.terragrunt-stack/` directory
 - **Values**: Configuration passed to the underlying Terraform module
 
@@ -115,7 +115,7 @@ The repository uses a **proxmox-pool** stack pattern for environment-wide resour
 
 ### Infrastructure Catalog
 
-External module repository: `git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git`
+External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.git`
 - Contains reusable Terraform modules for infrastructure components
 - Referenced via git source URLs in stack unit definitions
 - Version pinning via `?ref=branch-or-tag` (currently using `?ref=main` for staging stacks)
@@ -284,7 +284,7 @@ locals {
 }
 
 unit "proxmox_vm" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
   path = "proxmox-vm"
 
   values = {
@@ -312,7 +312,7 @@ unit "proxmox_vm" {
 }
 
 unit "dns" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/dns?ref=${local.version}"
   path = "dns"
 
   values = {
@@ -345,7 +345,7 @@ locals {
 }
 
 unit "proxmox_lxc" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-lxc?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-lxc?ref=${local.version}"
   path = "proxmox-lxc"
 
   values = {
@@ -366,7 +366,7 @@ unit "proxmox_lxc" {
 }
 
 unit "dns" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/dns?ref=${local.version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/dns?ref=${local.version}"
   path = "dns"
 
   values = {

@@ -3,7 +3,7 @@ locals {
 }
 
 unit "proxmox_pool" {
-  source = "git::git@github.com:sflab-io/terragrunt-infrastructure-catalog-homelab.git//units/proxmox-pool?ref=${local.env.catalog_version}"
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-pool?ref=${local.env.catalog_version}"
 
   path = "proxmox-pool"
 
