@@ -1,7 +1,18 @@
 locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app = "docker"
+  app       = "docker"
+  memory    = 2048
+  disk_size = 8
+
+  network_config = {
+    type = "dhcp"
+  }
+
+  record_types = {
+    normal   = true
+    wildcard = true
+  }
 }
 
 stack "homelab_proxmox_vm" {
@@ -14,17 +25,12 @@ stack "homelab_proxmox_vm" {
     app = local.app
     env = local.env.environment_name
 
-    memory    = 2048
-    disk_size = 8
+    memory    = local.memory
+    disk_size = local.disk_size
 
-    network_config = {
-      type = "dhcp"
-    }
+    network_config = local.network_config
 
-    record_types = {
-      normal   = true
-      wildcard = true
-    }
+    record_types = local.record_types
 
     dns_zone = local.env.zone
 

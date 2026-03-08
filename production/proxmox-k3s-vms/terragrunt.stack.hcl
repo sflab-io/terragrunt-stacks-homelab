@@ -3,6 +3,11 @@ locals {
   app    = "k3s"
   memory = 4096
   cores  = 2
+
+  record_types = {
+    normal   = true
+    wildcard = false
+  }
 }
 
 unit "vm_cp1" {
@@ -31,10 +36,7 @@ unit "dns_cp1" {
     env     = local.env.environment_name
     app     = "${local.app}-cp1"
 
-    record_types = {
-      normal   = true
-      wildcard = false
-    }
+    record_types = local.record_types
     zone         = local.env.zone
     compute_path = "../${local.app}-cp1"
   }
@@ -66,10 +68,7 @@ unit "dns_w1" {
     env     = local.env.environment_name
     app     = "${local.app}-w1"
 
-    record_types = {
-      normal   = true
-      wildcard = false
-    }
+    record_types = local.record_types
     zone         = local.env.zone
     compute_path = "../${local.app}-w1"
   }
@@ -101,10 +100,7 @@ unit "dns_w2" {
     env     = local.env.environment_name
     app     = "${local.app}-w2"
 
-    record_types = {
-      normal   = true
-      wildcard = false
-    }
+    record_types = local.record_types
     zone         = local.env.zone
     compute_path = "../${local.app}-w2"
   }

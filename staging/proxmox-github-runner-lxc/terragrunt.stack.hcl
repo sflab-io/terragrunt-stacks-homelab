@@ -2,6 +2,15 @@ locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
   app = "github-runner"
+
+  network_config = {
+    type = "dhcp"
+  }
+
+  record_types = {
+    normal   = true
+    wildcard = false
+  }
 }
 
 stack "homelab_proxmox_lxc" {
@@ -14,14 +23,9 @@ stack "homelab_proxmox_lxc" {
     app = local.app
     env = local.env.environment_name
 
-    network_config = {
-      type = "dhcp"
-    }
+    network_config = local.network_config
 
-    record_types = {
-      normal   = true
-      wildcard = false
-    }
+    record_types = local.record_types
 
     dns_zone = local.env.zone
 
