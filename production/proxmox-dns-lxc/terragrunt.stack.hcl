@@ -2,15 +2,14 @@ locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
   app = "technitium-dns-secondary"
-  # Optional: Customize network configuration
   network_config = {
-      type        = "static"
-      ip_address  = "192.168.1.154"
-      cidr        = 24
-      gateway     = "192.168.1.1"
-      dns_servers = ["192.168.1.13", "192.168.1.154"]
-      domain      = "home.sflab.io"
-    }
+    type        = "static"
+    ip_address  = "192.168.1.154"
+    cidr        = 24
+    gateway     = "192.168.1.1"
+    dns_servers = ["192.168.1.13", "192.168.1.154"]
+    domain      = "home.sflab.io"
+  }
 }
 
 unit "proxmox_lxc" {
