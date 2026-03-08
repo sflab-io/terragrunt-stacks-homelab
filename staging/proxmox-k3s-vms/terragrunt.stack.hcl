@@ -14,7 +14,7 @@ locals {
 stack "vm_cp1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
-  path   = "${local.app}-cp1"
+  path = "${local.app}-cp1"
 
   values = {
     version             = local.env.catalog_version
@@ -32,7 +32,7 @@ stack "vm_cp1" {
 stack "vm_w1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
-  path   = "${local.app}-w1"
+  path = "${local.app}-w1"
 
   values = {
     version             = local.env.catalog_version
