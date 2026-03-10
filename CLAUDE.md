@@ -18,8 +18,8 @@ The local catalog repository is located at: `../terragrunt-infrastructure-catalo
 
 The following tools are automatically installed and managed via `mise.toml`:
 - **Go**: 1.24.2
-- **OpenTofu**: 1.9.0
-- **Terragrunt**: 0.78.0
+- **OpenTofu**: 1.11.5
+- **Terragrunt**: 0.99.4
 - **mc (MinIO Client)**: latest
 
 Run `mise install` to install all required tools, or simply enter the directory (mise will auto-install via hooks).
@@ -30,8 +30,8 @@ Run `mise install` to install all required tools, or simply enter the directory 
 
 ```
 ├── root.hcl                    # Root Terragrunt config: remote state, catalog URLs
-├── provider-config.hcl         # Proxmox provider configuration
-├── dns-config.hcl              # DNS provider configuration
+├── provider-proxmox-config.hcl # Proxmox provider configuration
+├── provider-dns-config.hcl     # DNS provider configuration
 ├── keys/                       # SSH public keys for VM access
 │   ├── ansible_id_ecdsa.pub    # Ansible SSH public key
 │   └── admin_id_ecdsa.pub      # Admin SSH public key
@@ -62,18 +62,24 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
    - Catalog repository URLs
    - Note: Provider configuration has been moved to separate files
 
-2. **provider-config.hcl**: Proxmox provider configuration
-   - Generates `provider.tf` for Proxmox provider
+2. **provider-proxmox-config.hcl**: Proxmox provider configuration
+   - Defines locals: `proxmox_host`, `proxmox_port` (8006), `proxmox_insecure` (true)
    - Configured for SSH agent authentication
 
-3. **dns-config.hcl**: DNS provider configuration
+3. **provider-dns-config.hcl**: DNS provider configuration
    - DNS server: 192.168.1.13:53
    - Key name: `ddnskey.`
    - Key algorithm: hmac-sha256
    - Used for automatic DNS record creation for VMs
    - Note: Key secret is stored in environment variable `TF_VAR_dns_key_secret`
 
-4. **environment.hcl**: Environment-specific variables (e.g., `environment_name = "staging"`)
+4. **environment.hcl**: Environment-specific variables shared by all stacks
+   - `environment_name`: e.g., `"staging"` or `"production"`
+   - `pool_id`: e.g., `"pool-staging"` or `"pool-production"`
+   - `catalog_version`: e.g., `"main"` (staging) or `"v0.4.0"` (production)
+   - `zone`: DNS zone, e.g., `"home.sflab.io."`
+   - `ansible_ssh_public_key_path`: Path to ansible SSH public key
+   - `admin_ssh_public_key_path`: Path to admin SSH public key
 
 5. **backend-config.hcl**: Environment-specific backend configuration
    - Defines S3 backend prefix, endpoint, and credentials
@@ -97,7 +103,7 @@ The repository uses a **proxmox-pool** stack pattern for environment-wide resour
 - **Application Stacks**: Reference the shared pool by ID/name (e.g., `pool_id = "pool-staging"`)
   - Do not create the pool themselves
   - Depend on the pool being pre-deployed
-  - Examples: `proxmox-docker-vm`, `proxmox-pki-vm`
+  - Examples: `proxmox-docker-vm`, `proxmox-vault-vm`, `proxmox-netbox-vm`
 
 **Deployment Order**:
 1. Deploy `proxmox-pool` stack first (one-time or when pool configuration changes)
@@ -117,14 +123,15 @@ The repository uses a **proxmox-pool** stack pattern for environment-wide resour
 
 External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.git`
 - Contains reusable Terraform modules for infrastructure components
-- Referenced via git source URLs in stack unit definitions
-- Version pinning via `?ref=branch-or-tag` (currently using `?ref=main` for staging stacks)
+- Referenced via git source URLs in stack definitions
+- Version pinning via `?ref=branch-or-tag`
+  - Staging: `?ref=main` (tracks latest catalog changes via `catalog_version = "main"` in environment.hcl)
+  - Production: `?ref=v0.4.0` (pinned for stability via `catalog_version = "v0.4.0"` in environment.hcl)
 
-**Available Units** (as used in current stacks):
-- `proxmox-pool`: Proxmox resource pool management
-- `proxmox-vm`: Proxmox virtual machine provisioning
-- `proxmox-lxc`: Proxmox LXC container provisioning
-- `dns`: Dynamic DNS record creation (depends on compute_path)
+**Available Catalog Items** (as used in current stacks):
+- `stacks/homelab-proxmox-vm`: Combined VM + DNS stack (use `stack {}` block)
+- `stacks/homelab-proxmox-lxc`: Combined LXC + DNS stack (use `stack {}` block)
+- `units/proxmox-pool`: Proxmox resource pool management (use `unit {}` block)
 
 ## Common Commands
 
@@ -170,7 +177,8 @@ mise run secrets:edit .creds.env.yaml
 
 **Notes**:
 - The `secrets:edit` task is available as a global mise task from `~/.config/mise/tasks/secrets/edit`
-- The `network:configure` and `network:status` tasks are available for network management
+- The `network:configure` and `network:status` tasks are global mise tasks (not defined in this repo)
+- Local tasks in `.mise/tasks/` cover: `minio/list`, `minio/setup`, `terragrunt/cleanup`, `terragrunt/stack/apply`, `terragrunt/stack/destroy`, `terragrunt/stack/generate`, `terragrunt/stack/output`, `terragrunt/stack/plan`
 
 ### Terragrunt Operations
 
@@ -239,7 +247,7 @@ TF_VAR_dns_key_secret       # DNS TSIG key secret for dynamic DNS updates
 - `.env` (optional, project root)
 - `.creds.env.yaml` (encrypted with SOPS, project root)
 
-Proxmox authentication is handled via SSH agent (configured in provider-config.hcl).
+Proxmox authentication is handled via SSH agent (configured in provider-proxmox-config.hcl).
 
 ## Development Workflow
 
@@ -254,7 +262,7 @@ terragrunt stack run apply
 cd staging/proxmox-docker-vm
 terragrunt stack run apply
 
-cd staging/proxmox-pki-vm
+cd staging/proxmox-vault-vm
 terragrunt stack run apply
 ```
 
@@ -270,60 +278,46 @@ terragrunt stack run apply
 **Example VM Stack Structure**:
 ```hcl
 locals {
-  version = "main"
+  env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
-  environment_name = local.environment_vars.locals.environment_name
+  app = "myapp"
 
-  pool_id = "pool-${local.environment_name}"
-  vm_name = "myapp-vm-${local.environment_name}"
-  zone = "home.sflab.io."
+  # Example: DHCP network configuration
+  network_config = {
+    type = "dhcp"
+  }
 
-  # SSH public key path for Ansible access
-  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/ansible_id_ecdsa.pub"
-}
+  # Example: Static IP configuration
+  # network_config = {
+  #   type        = "static"
+  #   ip_address  = "192.168.1.50"
+  #   cidr        = 24
+  #   gateway     = "192.168.1.1"
+  #   dns_servers = ["192.168.1.13", "192.168.1.154"]
+  #   domain      = "home.sflab.io"
+  # }
 
-unit "proxmox_vm" {
-  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-vm?ref=${local.version}"
-  path = "proxmox-vm"
-
-  values = {
-    version = local.version
-
-    env = local.environment_name
-    app = "myapp"
-
-    pool_id             = local.pool_id  # References shared pool
-    ssh_public_key_path = local.ssh_public_key_path
-
-    # Example: DHCP network configuration
-    network_config = {
-      type = "dhcp"
-    }
-
-    # Example: Static IP configuration
-    # network_config = {
-    #   type        = "static"
-    #   ip_address  = "192.168.1.50"
-    #   cidr        = 24
-    #   gateway     = "192.168.1.1"
-    # }
+  record_types = {
+    normal   = true
+    wildcard = false
   }
 }
 
-unit "dns" {
-  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/dns?ref=${local.version}"
-  path = "dns"
+stack "homelab_proxmox_vm" {
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
+  path   = "homelab-proxmox-vm"
 
   values = {
-    version = local.version
+    version = local.env.catalog_version
 
-    env  = local.environment_name
-    app  = "myapp"
+    env = local.env.environment_name
+    app = local.app
 
-    zone = local.zone
-
-    compute_path = "../proxmox-vm"  # References VM unit in same stack
+    network_config      = local.network_config
+    record_types        = local.record_types
+    dns_zone            = local.env.zone
+    pool_id             = local.env.pool_id
+    ssh_public_key_path = local.env.ansible_ssh_public_key_path
   }
 }
 ```
@@ -331,66 +325,46 @@ unit "dns" {
 **Example LXC Container Stack Structure**:
 ```hcl
 locals {
-  version = "main"
+  env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  environment_vars = read_terragrunt_config(find_in_parent_folders("environment.hcl"))
-  environment_name = local.environment_vars.locals.environment_name
-
-  pool_id = "pool-${local.environment_name}"
   app = "my-runner"
-  zone = "home.sflab.io."
 
-  # SSH public key path for admin/service access
-  ssh_public_key_path = "${get_terragrunt_dir()}/../../keys/admin_id_ecdsa.pub"
-}
+  network_config = {
+    type        = "dhcp"
+    dns_servers = ["192.168.1.13", "192.168.1.154"]
+    domain      = "home.sflab.io"
+  }
 
-unit "proxmox_lxc" {
-  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/proxmox-lxc?ref=${local.version}"
-  path = "proxmox-lxc"
-
-  values = {
-    version = local.version
-
-    env      = local.environment_name
-    app      = local.app
-
-    network_config = {
-      type        = "dhcp"
-      dns_servers = ["192.168.1.13", "192.168.1.154"]
-      domain      = "home.sflab.io"
-    }
-
-    pool_id             = local.pool_id  # References shared pool
-    ssh_public_key_path = local.ssh_public_key_path
+  record_types = {
+    normal   = true
+    wildcard = false
   }
 }
 
-unit "dns" {
-  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/dns?ref=${local.version}"
-  path = "dns"
+stack "homelab_proxmox_lxc" {
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-lxc?ref=${local.env.catalog_version}"
+  path   = "homelab-proxmox-lxc"
 
   values = {
-    version = local.version
+    version = local.env.catalog_version
 
-    env = local.environment_name
+    env = local.env.environment_name
     app = local.app
 
-    record_types = {
-      normal   = true
-      wildcard = false
-    }
-    zone = local.zone
-
-    compute_path = "../proxmox-lxc"  # References LXC unit in same stack
+    network_config      = local.network_config
+    record_types        = local.record_types
+    dns_zone            = local.env.zone
+    pool_id             = local.env.pool_id
+    ssh_public_key_path = local.env.admin_ssh_public_key_path
   }
 }
 ```
 
-### Adding a New Unit to Existing Stack
+### Adding a New Stack to Existing Stack
 
 1. Edit `terragrunt.stack.hcl` in the stack directory
-2. Add new `unit` block with source, path, and values
-3. Units within the same stack can depend on each other using relative paths (e.g., `compute_path = "../proxmox-vm"`)
+2. Add new `stack` block with source, path, and values
+3. Use `local.env.*` to reference shared environment variables
 4. Run `terragrunt stack run plan` to preview
 
 ### Modifying Infrastructure
@@ -416,20 +390,23 @@ This removes:
 ## Important Notes
 
 - **Pool First**: Always deploy the `proxmox-pool` stack before application stacks in each environment
-- **Version Pinning**: Currently using `?ref=main` for both staging and production stacks
-- **Stack vs Unit**: Most operations should be run at the stack level for consistency
+- **Version Pinning**: Managed via `catalog_version` in each environment's `environment.hcl`
+  - Staging: `catalog_version = "main"` (tracks latest catalog changes)
+  - Production: `catalog_version = "v0.4.0"` (pinned for stability)
+- **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); only `proxmox-pool` uses `unit {}` blocks (referencing catalog units)
+- **Environment Locals**: All stacks use `local.env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals` to reference shared settings (`catalog_version`, `pool_id`, `zone`, `environment_name`, `ansible_ssh_public_key_path`, `admin_ssh_public_key_path`)
 - **Generated Files**: `provider.tf` and `backend.tf` are auto-generated by Terragrunt
-  - Provider configuration from `provider-config.hcl`
+  - Provider configuration from `provider-proxmox-config.hcl`
   - Backend configuration from `root.hcl` (which reads `backend-config.hcl`)
 - **Configuration Files**:
-  - `provider-config.hcl`: Proxmox provider settings (at repository root)
-  - `dns-config.hcl`: DNS provider settings (at repository root)
+  - `provider-proxmox-config.hcl`: Proxmox provider settings (at repository root)
+  - `provider-dns-config.hcl`: DNS provider settings (at repository root)
   - `backend-config.hcl`: S3 backend settings (per environment)
 - **Dependencies**:
-  - Units within a stack can reference each other using relative paths (e.g., `compute_path = "../proxmox-vm"`)
+  - DNS is included within catalog stacks (no separate `dns` unit needed)
   - Cross-stack dependencies (like shared pools) are referenced by ID/name, not paths
 - **State Management**: Each unit gets its own state file in the S3 bucket, organized by path
-- **Proxmox Endpoint**: Currently configured for `https://192.168.1.12:8006/` (alternative: `https://proxmox.home.sflab.io:8006/`)
+- **Proxmox Endpoint**: `https://proxmox.home.sflab.io:8006/` (configured in `provider-proxmox-config.hcl`)
 - **Cache Directories**: `.terragrunt-stack/` and `.terragrunt-cache/` are generated and should not be committed to git
 
 ## Troubleshooting
@@ -465,51 +442,68 @@ This removes:
 
 2. **proxmox-docker-vm** (`staging/proxmox-docker-vm/`)
    - Purpose: Docker host VM
-   - Contains: `proxmox_vm`, `dns` units
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: DHCP
+   - DNS records: normal + wildcard
+   - Memory: 2048MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 3. **proxmox-k3s-vms** (`staging/proxmox-k3s-vms/`)
    - Purpose: K3s Kubernetes cluster VMs (control plane and worker nodes)
-   - Contains: `vm_cp1`, `dns_cp1`, `vm_w1`, `dns_w1` units
+   - Contains: `vm_cp1`, `vm_w1` stacks (2 nodes: 1 control plane, 1 worker)
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP
+   - Network: DHCP (no explicit network_config set)
+   - DNS records: normal only
+   - Memory: 4096MB, Cores: 2
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - Note: Uses admin SSH key instead of ansible key
 
 4. **proxmox-vault-vm** (`staging/proxmox-vault-vm/`)
    - Purpose: HashiCorp Vault VM for secrets management
-   - Contains: `proxmox_vm`, `dns` units
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: Static IP (192.168.1.33/24, gateway 192.168.1.1)
    - DNS servers: 192.168.1.13, 192.168.1.154
+   - DNS records: normal only (no wildcard)
+   - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 5. **proxmox-github-runner-lxc** (`staging/proxmox-github-runner-lxc/`)
    - Purpose: GitHub Actions runner LXC container
-   - Contains: `proxmox_lxc`, `dns` units
+   - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.154) and domain (home.sflab.io)
+   - Network: DHCP (simple `{type = "dhcp"}`)
+   - DNS records: normal only (no wildcard)
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
 6. **proxmox-dns-lxc** (`staging/proxmox-dns-lxc/`)
    - Purpose: Technitium DNS servers (primary and secondary) for homelab DNS infrastructure
-   - Contains: `proxmox_lxc_1`, `proxmox_lxc_2` units (no DNS units - these ARE the DNS servers)
+   - Contains: `proxmox_lxc_1`, `proxmox_lxc_2` stacks (app names: `technitium-dns-1`, `technitium-dns-2`)
    - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.` (dns_zone is passed but these ARE the DNS servers)
    - Network: Static IP configuration
      - DNS 1: 192.168.1.153/24 (technitium-dns-1-staging)
      - DNS 2: 192.168.1.154/24 (technitium-dns-2-staging)
      - Gateway: 192.168.1.1
-     - DNS servers: 192.168.1.1
+     - DNS servers: 192.168.1.13, 192.168.1.154
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
-   - Note: Does not create DNS records (these containers ARE the DNS infrastructure)
+
+7. **proxmox-netbox-vm** (`staging/proxmox-netbox-vm/`)
+   - Purpose: NetBox IPAM/DCIM VM for network documentation
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+   - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: Static IP (192.168.1.88/24, gateway 192.168.1.1)
+   - DNS servers: 192.168.1.13, 192.168.1.154
+   - DNS records: normal + wildcard
+   - Memory: 4096MB, Disk: 16GB
+   - SSH key: `keys/ansible_id_ecdsa.pub`
 
 ### Current Production Stacks
 
@@ -520,47 +514,64 @@ This removes:
 
 2. **proxmox-docker-vm** (`production/proxmox-docker-vm/`)
    - Purpose: Docker host VM (production)
-   - Contains: `proxmox_vm`, `dns` units
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: DHCP
+   - DNS records: normal + wildcard
+   - Memory: 2048MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 3. **proxmox-k3s-vms** (`production/proxmox-k3s-vms/`)
    - Purpose: K3s Kubernetes cluster VMs (control plane and worker nodes)
-   - Contains: `vm_cp1`, `dns_cp1`, `vm_w1`, `dns_w1`, `vm_w2`, `dns_w2` units
+   - Contains: `vm_cp1`, `vm_w1` stacks (2 nodes: 1 control plane, 1 worker)
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP
+   - Network: DHCP (no explicit network_config set)
+   - DNS records: normal only
+   - Memory: 4096MB, Cores: 2
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - Note: Production has 3 nodes (1 control plane, 2 workers) vs staging with 2 nodes
 
 4. **proxmox-vault-vm** (`production/proxmox-vault-vm/`)
    - Purpose: HashiCorp Vault VM for secrets management (production)
-   - Contains: `proxmox_vm`, `dns` units
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: Static IP (192.168.1.34/24, gateway 192.168.1.1)
    - DNS servers: 192.168.1.13, 192.168.1.154
+   - DNS records: normal only (no wildcard)
+   - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 5. **proxmox-github-runner-lxc** (`production/proxmox-github-runner-lxc/`)
    - Purpose: GitHub Actions runner LXC container
-   - Contains: `proxmox_lxc`, `dns` units
+   - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP with DNS servers (192.168.1.13, 192.168.1.154) and domain (home.sflab.io)
+   - Network: DHCP (simple `{type = "dhcp"}`)
+   - DNS records: normal only (no wildcard)
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
 6. **proxmox-dns-lxc** (`production/proxmox-dns-lxc/`)
    - Purpose: Technitium DNS secondary server for homelab DNS infrastructure
-   - Contains: `proxmox_lxc` unit (single secondary DNS server, no DNS unit)
+   - Contains: `proxmox_lxc` stack (app name: `technitium-dns-secondary`)
    - References: `pool-production` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.` (dns_zone is passed to catalog stack)
    - Network: Static IP configuration
      - IP: 192.168.1.154/24 (technitium-dns-secondary-production)
      - Gateway: 192.168.1.1
-     - DNS servers: 192.168.1.1
+     - DNS servers: 192.168.1.13, 192.168.1.154
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
-   - Note: Does not create DNS records (this container IS part of the DNS infrastructure)
+
+7. **proxmox-netbox-vm** (`production/proxmox-netbox-vm/`)
+   - Purpose: NetBox IPAM/DCIM VM for network documentation (production)
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+   - References: `pool-production` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: Static IP (192.168.1.89/24, gateway 192.168.1.1)
+   - DNS servers: 192.168.1.13, 192.168.1.154
+   - DNS records: normal + wildcard
+   - Memory: 4096MB, Disk: 16GB
+   - SSH key: `keys/ansible_id_ecdsa.pub`
