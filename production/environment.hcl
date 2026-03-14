@@ -1,5 +1,5 @@
-# Set environment wide variables. These are automatically pulled in to configure the remote state bucket in the root
-# root.hcl configuration.
+# Set environment wide variables.
+# These are automatically pulled in to provide default values for units in this stack.
 locals {
   environment_name = "production"
   pool_id          = "pool-${local.environment_name}"

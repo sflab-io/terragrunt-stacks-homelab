@@ -19,6 +19,10 @@ locals {
     dns_servers = ["192.168.1.13", "192.168.1.154"]
     domain      = "home.sflab.io"
   }
+
+  #
+  cluster_name = "Proxmox Cluster Production"
+  tenant_name  = "Platform Team"
 }
 
 stack "proxmox_lxc_1" {
@@ -34,6 +38,10 @@ stack "proxmox_lxc_1" {
     dns_zone            = local.env.zone
     pool_id             = local.env.pool_id
     ssh_public_key_path = local.env.admin_ssh_public_key_path
+
+    #
+    cluster_name = local.cluster_name
+    tenant_name  = local.tenant_name
   }
 }
 
@@ -50,5 +58,9 @@ stack "proxmox_lxc_2" {
     dns_zone            = local.env.zone
     pool_id             = local.env.pool_id
     ssh_public_key_path = local.env.admin_ssh_public_key_path
+
+    #
+    cluster_name = local.cluster_name
+    tenant_name  = local.tenant_name
   }
 }
