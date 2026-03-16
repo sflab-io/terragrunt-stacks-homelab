@@ -15,8 +15,8 @@ locals {
   }
 
   #
-  cluster_name = "Proxmox Cluster Production"
-  tenant_name  = "Platform Team"
+  cluster_name = local.env.netbox_cluster_name
+  tenant_name  = local.env.netbox_tenant_name
 }
 
 stack "homelab_proxmox_vm" {

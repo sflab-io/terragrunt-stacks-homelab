@@ -42,5 +42,8 @@ stack "homelab_proxmox_vm" {
 
     pool_id             = local.env.pool_id
     ssh_public_key_path = local.env.ansible_ssh_public_key_path
+
+    # Set to empty list to avoid try to add the vm to netbox before netbox is available.
+    virtual_machines = []
   }
 }

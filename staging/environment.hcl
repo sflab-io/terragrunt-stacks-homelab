@@ -6,10 +6,14 @@ locals {
 
   # Shared catalog configuration
   # Tracks latest catalog changes. Promotes to production after validation.
-  catalog_version = "main"
-  zone            = "home.sflab.io."
+  catalog_version = "feat/optional_virtual_machines"
+  zone            = "home.sflab.io"
 
   # SSH public key paths
   ansible_ssh_public_key_path = "${get_terragrunt_dir()}/../keys/ansible_id_ecdsa.pub"
   admin_ssh_public_key_path   = "${get_terragrunt_dir()}/../keys/admin_id_ecdsa.pub"
+
+  # NetBox configuration
+  netbox_cluster_name = "Proxmox Cluster Production"
+  netbox_tenant_name  = "Platform Team"
 }

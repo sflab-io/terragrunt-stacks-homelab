@@ -348,7 +348,7 @@ locals {
 
   clusters = [
     {
-      name              = "Proxmox Cluster Production"
+      name              = local.env.netbox_cluster_name
       cluster_type_name = "Proxmox VE Cluster"
       site_name         = "SFLAB Homelab Site"
       tenant_name       = "Platform Team"
