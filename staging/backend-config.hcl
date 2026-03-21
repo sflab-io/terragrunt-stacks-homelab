@@ -2,9 +2,9 @@ locals {
   prefix  = "staging-terragrunt"
 
   region = "eu-central-1"
-  # unable to use dns name because name resolution may not fully work
+  # unable to use dns name because name resolution is not working
+  # in this early stage of the homelab setup
   endpoint  = "http://192.168.1.20:9000"
-  # endpoint  = "http://minio.home.sflab.io:9000"
   skip_credentials_validation = true
   force_path_style = true
   access_key = get_env("AWS_ACCESS_KEY_ID")

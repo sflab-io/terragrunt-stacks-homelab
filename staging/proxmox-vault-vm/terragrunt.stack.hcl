@@ -11,7 +11,7 @@ locals {
     cidr        = 24
     gateway     = "192.168.1.1"
     dns_servers = ["192.168.1.13", "192.168.1.154"]
-    domain      = "home.sflab.io"
+    domain      = "${local.env.zone}"
   }
 
   record_types = {
