@@ -16,6 +16,7 @@ locals {
   cluster_name = local.env.netbox_cluster_name
   tenant_name  = local.env.netbox_tenant_name
   site_name    = local.env.netbox_site_name
+  role_name    = "Gitlab Runner"
 }
 
 stack "homelab_proxmox_vm" {
@@ -42,5 +43,6 @@ stack "homelab_proxmox_vm" {
     cluster_name = local.cluster_name
     tenant_name  = local.tenant_name
     site_name    = local.site_name
+    role_name    = local.role_name
   }
 }
