@@ -1,7 +1,7 @@
 locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app = "gitlab-runner"
+  app = "github-runner"
 
   network_config = {
     type = "dhcp"
@@ -13,9 +13,9 @@ locals {
   }
 }
 
-stack "homelab_proxmox_lxc" {
-  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-lxc?ref=${local.env.catalog_version}"
-  path   = "homelab-proxmox-lxc"
+stack "homelab_proxmox_vm" {
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
+  path   = "homelab-proxmox-vm"
 
   values = {
     version = local.env.catalog_version
