@@ -11,10 +11,15 @@ locals {
     normal   = true
     wildcard = false
   }
+
+  #
+  cluster_name = local.env.netbox_cluster_name
+  tenant_name  = local.env.netbox_tenant_name
 }
 
 stack "homelab_proxmox_vm" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
+
   path   = "homelab-proxmox-vm"
 
   values = {
@@ -31,5 +36,11 @@ stack "homelab_proxmox_vm" {
 
     pool_id             = local.env.pool_id
     ssh_public_key_path = local.env.admin_ssh_public_key_path
+
+    #
+    cluster_name = local.cluster_name
+    tenant_name  = local.tenant_name
+
+    # role_name = "GitLab Runner"
   }
 }
