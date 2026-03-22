@@ -7,7 +7,7 @@ locals {
   # Shared catalog configuration
   # Tracks latest catalog changes. Promotes to production after validation.
   # catalog_version = "main"
-  catalog_version = "feat/fix_site_lxc"
+  catalog_version = "main"
   zone            = "home.sflab.io"
 
   # SSH public key paths

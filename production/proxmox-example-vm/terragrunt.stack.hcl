@@ -1,28 +1,34 @@
 locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app       = "docker"
-  memory    = 2048
+  app       = "example-vm"
+  memory    = 4096
   disk_size = 8
 
   network_config = {
-    type = "dhcp"
+    type        = "static"
+    ip_address  = "192.168.1.45"
+    cidr        = 24
+    gateway     = "192.168.1.1"
+    dns_servers = ["192.168.1.13", "192.168.1.154"]
+    domain      = "${local.env.zone}"
   }
 
   record_types = {
     normal   = true
-    wildcard = true
+    wildcard = false
   }
 
   #
   cluster_name = local.env.netbox_cluster_name
   tenant_name  = local.env.netbox_tenant_name
   site_name    = local.env.netbox_site_name
-  role_name    = "Docker"
+  role_name    = "Example VM"
 }
 
 stack "homelab_proxmox_vm" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
+
   path   = "homelab-proxmox-vm"
 
   values = {
