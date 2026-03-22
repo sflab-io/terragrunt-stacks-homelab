@@ -37,6 +37,6 @@ stack "proxmox_lxc" {
     cluster_name = local.cluster_name
     tenant_name  = local.tenant_name
     site_name    = local.site_name
-    role_name    = local.role_name_dns2
+    role_name    = local.role_name
   }
 }
