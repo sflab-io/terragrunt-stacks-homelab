@@ -13,6 +13,9 @@ locals {
   #
   cluster_name = local.env.netbox_cluster_name
   tenant_name  = local.env.netbox_tenant_name
+  site_name    = local.env.netbox_site_name
+  role_name_cp = "Control Plane"
+  role_name_w  = "Worker"
 }
 
 stack "vm_cp1" {
@@ -34,6 +37,8 @@ stack "vm_cp1" {
     #
     cluster_name = local.cluster_name
     tenant_name  = local.tenant_name
+    site_name    = local.site_name
+    role_name    = local.role_name_cp
   }
 }
 
@@ -56,5 +61,7 @@ stack "vm_w1" {
     #
     cluster_name = local.cluster_name
     tenant_name  = local.tenant_name
+    site_name    = local.site_name
+    role_name    = local.role_name_w
   }
 }
