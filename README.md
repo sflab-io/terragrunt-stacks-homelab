@@ -26,15 +26,21 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 ├── staging/                    # Staging environment
 │   ├── environment.hcl
 │   ├── backend-config.hcl
+│   ├── provider-netbox-config.hcl
 │   ├── proxmox-pool/
 │   ├── proxmox-docker-vm/
 │   ├── proxmox-k3s-vms/
 │   ├── proxmox-vault-vm/
-│   ├── proxmox-github-runner-lxc/
-│   └── proxmox-dns-lxc/
+│   ├── proxmox-github-runner-vm/
+│   ├── proxmox-gitlab-runner-vm/
+│   ├── proxmox-dns-lxc/
+│   ├── proxmox-netbox-vm/
+│   ├── proxmox-example-vm/
+│   └── proxmox-example-lxc/
 └── production/                 # Production environment
     ├── environment.hcl
     ├── backend-config.hcl
+    ├── provider-netbox-config.hcl
     └── [same stacks as staging]
 ```
 
@@ -101,11 +107,14 @@ AWS_SECRET_ACCESS_KEY=<minio-secret-key>
 MINIO_USERNAME=<minio-admin-username>
 MINIO_PASSWORD=<minio-admin-password>
 
-# LXC containers
+# LXC containers (dns-lxc, example-lxc stacks)
 PROXMOX_CONTAINER_PASSWORD=<container-password>
 
 # DNS dynamic updates
 TF_VAR_dns_key_secret=<dns-tsig-key-secret>
+
+# NetBox API token (for IPAM/DCIM registration)
+TF_VAR_netbox_token=<netbox-api-token>
 ```
 
 Environment variables are loaded from:
@@ -168,27 +177,33 @@ terragrunt catalog                # Browse available modules
 
 ### Staging Environment
 
-| Stack | Purpose | Components | Network |
-|-------|---------|------------|---------|
-| **proxmox-pool** | Resource pool | `proxmox_pool` | - |
+| Stack | Purpose | Type | Network |
+|-------|---------|------|---------|
+| **proxmox-pool** | Resource pool | Unit | - |
 | **proxmox-docker-vm** | Docker host | VM + DNS | DHCP |
-| **proxmox-k3s-vms** | K3s cluster | 1 CP + 1 Worker | DHCP |
-| **proxmox-vault-vm** | Vault server | VM + DNS | Static (192.168.1.33) |
-| **proxmox-github-runner-lxc** | GitHub Actions runner | LXC + DNS | DHCP |
-| **proxmox-dns-lxc** | DNS servers (primary + secondary) | 2 LXC containers | Static (192.168.1.153-154) |
+| **proxmox-k3s-vms** | K3s cluster (1 CP + 1 Worker) | 2× VM + DNS | DHCP |
+| **proxmox-vault-vm** | HashiCorp Vault | VM + DNS | Static (192.168.1.33) |
+| **proxmox-github-runner-vm** | GitHub Actions runner | VM + DNS | DHCP |
+| **proxmox-gitlab-runner-vm** | GitLab CI runner | VM + DNS | DHCP |
+| **proxmox-dns-lxc** | Technitium DNS (primary + secondary) | 2× LXC + DNS | Static (192.168.1.153-154) |
 | **proxmox-netbox-vm** | NetBox IPAM/DCIM | VM + DNS | Static (192.168.1.88) |
+| **proxmox-example-vm** | Example VM template | VM + DNS | Static (192.168.1.45) |
+| **proxmox-example-lxc** | Example LXC template | LXC + DNS | Static (192.168.1.44) |
 
 ### Production Environment
 
-| Stack | Purpose | Components | Network |
-|-------|---------|------------|---------|
-| **proxmox-pool** | Resource pool | `proxmox_pool` | - |
+| Stack | Purpose | Type | Network |
+|-------|---------|------|---------|
+| **proxmox-pool** | Resource pool | Unit | - |
 | **proxmox-docker-vm** | Docker host | VM + DNS | DHCP |
-| **proxmox-k3s-vms** | K3s cluster | 1 CP + 1 Worker | DHCP |
-| **proxmox-vault-vm** | Vault server | VM + DNS | Static (192.168.1.34) |
-| **proxmox-github-runner-lxc** | GitHub Actions runner | LXC + DNS | DHCP |
-| **proxmox-dns-lxc** | DNS secondary server | 1 LXC container | Static (192.168.1.154) |
+| **proxmox-k3s-vms** | K3s cluster (1 CP + 1 Worker) | 2× VM + DNS | DHCP |
+| **proxmox-vault-vm** | HashiCorp Vault | VM + DNS | Static (192.168.1.34) |
+| **proxmox-github-runner-vm** | GitHub Actions runner | VM + DNS | DHCP |
+| **proxmox-gitlab-runner-vm** | GitLab CI runner | VM + DNS | DHCP |
+| **proxmox-dns-lxc** | Technitium DNS secondary | LXC + DNS | Static (192.168.1.154) |
 | **proxmox-netbox-vm** | NetBox IPAM/DCIM | VM + DNS | Static (192.168.1.89) |
+| **proxmox-example-vm** | Example VM template | VM + DNS | Static (192.168.1.45) |
+| **proxmox-example-lxc** | Example LXC template | LXC + DNS | Static (192.168.1.44) |
 
 ## Development Workflow
 
@@ -260,17 +275,18 @@ mise run terragrunt:cleanup
 1. `root.hcl` - Global settings, backend config
 2. `provider-proxmox-config.hcl` - Proxmox provider (SSH agent auth)
 3. `provider-dns-config.hcl` - DNS provider (TSIG key auth)
-4. `{environment}/environment.hcl` - Environment variables
-5. `{environment}/backend-config.hcl` - Backend settings
-6. `{stack}/terragrunt.stack.hcl` - Stack units and values
+4. `{environment}/provider-netbox-config.hcl` - NetBox provider (per environment)
+5. `{environment}/environment.hcl` - Environment variables + NetBox metadata
+6. `{environment}/backend-config.hcl` - Backend settings
+7. `{stack}/terragrunt.stack.hcl` - Stack units and values
 
 ## Infrastructure Catalog
 
 External module repository: [terragrunt-infrastructure-catalog-homelab](https://github.com/sflab-io/terragrunt-infrastructure-catalog-homelab)
 
 **Available catalog items:**
-- `stacks/homelab-proxmox-vm` - Combined VM + DNS stack (use `stack {}` block)
-- `stacks/homelab-proxmox-lxc` - Combined LXC + DNS stack (use `stack {}` block)
+- `stacks/homelab-proxmox-vm` - Combined VM + DNS + NetBox stack (use `stack {}` block)
+- `stacks/homelab-proxmox-lxc` - Combined LXC + DNS + NetBox stack (use `stack {}` block)
 - `units/proxmox-pool` - Proxmox resource pool management (use `unit {}` block)
 
 ## Important Notes
@@ -281,6 +297,8 @@ External module repository: [terragrunt-infrastructure-catalog-homelab](https://
 - Provider and backend configs are auto-generated by Terragrunt
 - Proxmox endpoint: `https://proxmox.home.sflab.io:8006/`
 - DNS server: `192.168.1.13:53`
+- NetBox: Staging at `http://netbox-staging.home.sflab.io`, Production at `http://netbox.home.sflab.io`
+- `proxmox-netbox-vm` must be deployed with `virtual_machines = []` on first run to avoid circular dependency
 
 ## Additional Resources
 
@@ -288,11 +306,3 @@ External module repository: [terragrunt-infrastructure-catalog-homelab](https://
 - **[Terragrunt Documentation](https://terragrunt.gruntwork.io/)**
 - **[OpenTofu Documentation](https://opentofu.org/docs/)**
 - **[Proxmox Documentation](https://pve.proxmox.com/pve-docs/)**
-
-## License
-
-[Your License Here]
-
-## Contributing
-
-[Your Contributing Guidelines Here]

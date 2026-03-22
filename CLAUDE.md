@@ -38,6 +38,7 @@ Run `mise install` to install all required tools, or simply enter the directory 
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
 │   ├── backend-config.hcl      # Environment-specific backend configuration
+│   ├── provider-netbox-config.hcl # NetBox provider configuration (per environment)
 │   ├── proxmox-pool/           # Proxmox resource pool stack
 │   │   └── terragrunt.stack.hcl
 │   └── {stack-name}/           # Individual stack deployments (e.g., proxmox-docker-vm)
@@ -73,20 +74,28 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
    - Used for automatic DNS record creation for VMs
    - Note: Key secret is stored in environment variable `TF_VAR_dns_key_secret`
 
-4. **environment.hcl**: Environment-specific variables shared by all stacks
+4. **provider-netbox-config.hcl**: NetBox provider configuration (per environment)
+   - Staging: `http://netbox-staging.home.sflab.io` (`skip_version_check = true`)
+   - Production: `http://netbox.home.sflab.io` (`skip_version_check = true`)
+   - Used for registering VMs/LXC containers in NetBox IPAM/DCIM
+
+5. **environment.hcl**: Environment-specific variables shared by all stacks
    - `environment_name`: e.g., `"staging"` or `"production"`
    - `pool_id`: e.g., `"pool-staging"` or `"pool-production"`
-   - `catalog_version`: e.g., `"main"` (staging) or `"v0.4.0"` (production)
-   - `zone`: DNS zone, e.g., `"home.sflab.io."`
+   - `catalog_version`: e.g., `"main"` (staging) or `"v0.8.0"` (production)
+   - `zone`: DNS zone, e.g., `"home.sflab.io"`
    - `ansible_ssh_public_key_path`: Path to ansible SSH public key
    - `admin_ssh_public_key_path`: Path to admin SSH public key
+   - `netbox_cluster_name`: Proxmox cluster name in NetBox (e.g., `"Proxmox Cluster Staging"`)
+   - `netbox_tenant_name`: NetBox tenant (e.g., `"Platform Team"`)
+   - `netbox_site_name`: NetBox site (e.g., `"SFLAB Homelab Site Staging"`)
 
-5. **backend-config.hcl**: Environment-specific backend configuration
+6. **backend-config.hcl**: Environment-specific backend configuration
    - Defines S3 backend prefix, endpoint, and credentials
    - Located in each environment directory
    - Configured for both staging and production environments
 
-6. **terragrunt.stack.hcl**: Stack definition with multiple units
+7. **terragrunt.stack.hcl**: Stack definition with multiple units
    - Each unit references a module from the catalog
    - Units can have dependencies on each other within the same stack
    - Local variables define stack-wide settings
@@ -126,7 +135,7 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 - Referenced via git source URLs in stack definitions
 - Version pinning via `?ref=branch-or-tag`
   - Staging: `?ref=main` (tracks latest catalog changes via `catalog_version = "main"` in environment.hcl)
-  - Production: `?ref=v0.4.0` (pinned for stability via `catalog_version = "v0.4.0"` in environment.hcl)
+  - Production: `?ref=v0.8.0` (pinned for stability via `catalog_version = "v0.8.0"` in environment.hcl)
 
 **Available Catalog Items** (as used in current stacks):
 - `stacks/homelab-proxmox-vm`: Combined VM + DNS stack (use `stack {}` block)
@@ -280,7 +289,9 @@ terragrunt stack run apply
 locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app = "myapp"
+  app       = "myapp"
+  memory    = 4096
+  disk_size = 8
 
   # Example: DHCP network configuration
   network_config = {
@@ -301,6 +312,12 @@ locals {
     normal   = true
     wildcard = false
   }
+
+  # NetBox integration (from environment.hcl)
+  cluster_name = local.env.netbox_cluster_name
+  tenant_name  = local.env.netbox_tenant_name
+  site_name    = local.env.netbox_site_name
+  role_name    = "MyApp"
 }
 
 stack "homelab_proxmox_vm" {
@@ -310,14 +327,21 @@ stack "homelab_proxmox_vm" {
   values = {
     version = local.env.catalog_version
 
-    env = local.env.environment_name
-    app = local.app
+    env       = local.env.environment_name
+    app       = local.app
+    memory    = local.memory
+    disk_size = local.disk_size
 
     network_config      = local.network_config
     record_types        = local.record_types
     dns_zone            = local.env.zone
     pool_id             = local.env.pool_id
     ssh_public_key_path = local.env.ansible_ssh_public_key_path
+
+    cluster_name = local.cluster_name
+    tenant_name  = local.tenant_name
+    site_name    = local.site_name
+    role_name    = local.role_name
   }
 }
 ```
@@ -327,18 +351,24 @@ stack "homelab_proxmox_vm" {
 locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app = "my-runner"
+  app       = "my-runner"
+  memory    = 4096
+  disk_size = 8
 
   network_config = {
-    type        = "dhcp"
-    dns_servers = ["192.168.1.13", "192.168.1.154"]
-    domain      = "home.sflab.io"
+    type = "dhcp"
   }
 
   record_types = {
     normal   = true
     wildcard = false
   }
+
+  # NetBox integration (from environment.hcl)
+  cluster_name = local.env.netbox_cluster_name
+  tenant_name  = local.env.netbox_tenant_name
+  site_name    = local.env.netbox_site_name
+  role_name    = "My Runner"
 }
 
 stack "homelab_proxmox_lxc" {
@@ -348,14 +378,21 @@ stack "homelab_proxmox_lxc" {
   values = {
     version = local.env.catalog_version
 
-    env = local.env.environment_name
-    app = local.app
+    env       = local.env.environment_name
+    app       = local.app
+    memory    = local.memory
+    disk_size = local.disk_size
 
     network_config      = local.network_config
     record_types        = local.record_types
     dns_zone            = local.env.zone
     pool_id             = local.env.pool_id
     ssh_public_key_path = local.env.admin_ssh_public_key_path
+
+    cluster_name = local.cluster_name
+    tenant_name  = local.tenant_name
+    site_name    = local.site_name
+    role_name    = local.role_name
   }
 }
 ```
@@ -392,15 +429,16 @@ This removes:
 - **Pool First**: Always deploy the `proxmox-pool` stack before application stacks in each environment
 - **Version Pinning**: Managed via `catalog_version` in each environment's `environment.hcl`
   - Staging: `catalog_version = "main"` (tracks latest catalog changes)
-  - Production: `catalog_version = "v0.4.0"` (pinned for stability)
+  - Production: `catalog_version = "v0.8.0"` (pinned for stability)
 - **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); only `proxmox-pool` uses `unit {}` blocks (referencing catalog units)
-- **Environment Locals**: All stacks use `local.env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals` to reference shared settings (`catalog_version`, `pool_id`, `zone`, `environment_name`, `ansible_ssh_public_key_path`, `admin_ssh_public_key_path`)
+- **Environment Locals**: All stacks use `local.env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals` to reference shared settings (`catalog_version`, `pool_id`, `zone`, `environment_name`, `ansible_ssh_public_key_path`, `admin_ssh_public_key_path`, `netbox_cluster_name`, `netbox_tenant_name`, `netbox_site_name`)
 - **Generated Files**: `provider.tf` and `backend.tf` are auto-generated by Terragrunt
   - Provider configuration from `provider-proxmox-config.hcl`
   - Backend configuration from `root.hcl` (which reads `backend-config.hcl`)
 - **Configuration Files**:
   - `provider-proxmox-config.hcl`: Proxmox provider settings (at repository root)
   - `provider-dns-config.hcl`: DNS provider settings (at repository root)
+  - `provider-netbox-config.hcl`: NetBox provider settings (per environment directory)
   - `backend-config.hcl`: S3 backend settings (per environment)
 - **Dependencies**:
   - DNS is included within catalog stacks (no separate `dns` unit needed)
@@ -471,17 +509,27 @@ This removes:
    - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-5. **proxmox-github-runner-lxc** (`staging/proxmox-github-runner-lxc/`)
-   - Purpose: GitHub Actions runner LXC container
-   - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
+5. **proxmox-github-runner-vm** (`staging/proxmox-github-runner-vm/`)
+   - Purpose: GitHub Actions runner VM
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP (simple `{type = "dhcp"}`)
+   - Network: DHCP
    - DNS records: normal only (no wildcard)
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
+   - NetBox role: `"GitHub Runner"`
 
-6. **proxmox-dns-lxc** (`staging/proxmox-dns-lxc/`)
+6. **proxmox-gitlab-runner-vm** (`staging/proxmox-gitlab-runner-vm/`)
+   - Purpose: GitLab CI runner VM
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+   - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+   - DNS records: normal only (no wildcard)
+   - SSH key: `keys/admin_id_ecdsa.pub`
+   - NetBox role: `"Gitlab Runner"`
+
+7. **proxmox-dns-lxc** (`staging/proxmox-dns-lxc/`)
    - Purpose: Technitium DNS servers (primary and secondary) for homelab DNS infrastructure
    - Contains: `proxmox_lxc_1`, `proxmox_lxc_2` stacks (app names: `technitium-dns-1`, `technitium-dns-2`)
    - References: `pool-staging` from proxmox-pool stack
@@ -494,7 +542,7 @@ This removes:
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
-7. **proxmox-netbox-vm** (`staging/proxmox-netbox-vm/`)
+8. **proxmox-netbox-vm** (`staging/proxmox-netbox-vm/`)
    - Purpose: NetBox IPAM/DCIM VM for network documentation
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
@@ -504,6 +552,26 @@ This removes:
    - DNS records: normal + wildcard
    - Memory: 4096MB, Disk: 16GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
+   - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
+
+9. **proxmox-example-vm** (`staging/proxmox-example-vm/`)
+   - Purpose: Example/template VM stack for reference
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+   - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
+   - DNS records: normal only (no wildcard)
+   - Memory: 4096MB, Disk: 8GB
+   - SSH key: `keys/ansible_id_ecdsa.pub`
+   - NetBox role: `"Example VM"`
+
+10. **proxmox-example-lxc** (`staging/proxmox-example-lxc/`)
+    - Purpose: Example/template LXC stack for reference
+    - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
+    - Network: Static IP (192.168.1.44/24, gateway 192.168.1.1)
+    - DNS records: normal only (no wildcard)
+    - Memory: 4096MB, Disk: 8GB
+    - SSH key: `keys/ansible_id_ecdsa.pub`
+    - NetBox role: `"Example LXC"`
+    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
 ### Current Production Stacks
 
@@ -543,17 +611,27 @@ This removes:
    - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-5. **proxmox-github-runner-lxc** (`production/proxmox-github-runner-lxc/`)
-   - Purpose: GitHub Actions runner LXC container
-   - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
+5. **proxmox-github-runner-vm** (`production/proxmox-github-runner-vm/`)
+   - Purpose: GitHub Actions runner VM (production)
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP (simple `{type = "dhcp"}`)
+   - Network: DHCP
    - DNS records: normal only (no wildcard)
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
+   - NetBox role: `"GitHub Runner"`
 
-6. **proxmox-dns-lxc** (`production/proxmox-dns-lxc/`)
+6. **proxmox-gitlab-runner-vm** (`production/proxmox-gitlab-runner-vm/`)
+   - Purpose: GitLab CI runner VM (production)
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+   - References: `pool-production` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: DHCP
+   - DNS records: normal only (no wildcard)
+   - SSH key: `keys/admin_id_ecdsa.pub`
+   - NetBox role: `"Gitlab Runner"`
+
+7. **proxmox-dns-lxc** (`production/proxmox-dns-lxc/`)
    - Purpose: Technitium DNS secondary server for homelab DNS infrastructure
    - Contains: `proxmox_lxc` stack (app name: `technitium-dns-secondary`)
    - References: `pool-production` from proxmox-pool stack
@@ -565,7 +643,7 @@ This removes:
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
-7. **proxmox-netbox-vm** (`production/proxmox-netbox-vm/`)
+8. **proxmox-netbox-vm** (`production/proxmox-netbox-vm/`)
    - Purpose: NetBox IPAM/DCIM VM for network documentation (production)
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
@@ -575,3 +653,23 @@ This removes:
    - DNS records: normal + wildcard
    - Memory: 4096MB, Disk: 16GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
+   - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
+
+9. **proxmox-example-vm** (`production/proxmox-example-vm/`)
+   - Purpose: Example/template VM stack for reference (production)
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+   - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
+   - DNS records: normal only (no wildcard)
+   - Memory: 4096MB, Disk: 8GB
+   - SSH key: `keys/ansible_id_ecdsa.pub`
+   - NetBox role: `"Example VM"`
+
+10. **proxmox-example-lxc** (`production/proxmox-example-lxc/`)
+    - Purpose: Example/template LXC stack for reference (production)
+    - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
+    - Network: Static IP (192.168.1.44/24, gateway 192.168.1.1)
+    - DNS records: normal only (no wildcard)
+    - Memory: 4096MB, Disk: 8GB
+    - SSH key: `keys/ansible_id_ecdsa.pub`
+    - NetBox role: `"Example LXC"`
+    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
