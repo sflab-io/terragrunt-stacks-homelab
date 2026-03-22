@@ -5,6 +5,10 @@ locals {
   memory = 4096
   cores  = 2
 
+  network_config = {
+    type = "dhcp"
+  }
+
   record_types = {
     normal   = true
     wildcard = false
