@@ -1,7 +1,9 @@
 locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app = "gitlab-runner"
+  app       = "gitlab-runner"
+  memory    = 4096
+  disk_size = 16
 
   network_config = {
     type = "dhcp"
@@ -29,6 +31,9 @@ stack "homelab_proxmox_vm" {
 
     app = local.app
     env = local.env.environment_name
+
+    memory    = local.memory
+    disk_size = local.disk_size
 
     network_config = local.network_config
 
