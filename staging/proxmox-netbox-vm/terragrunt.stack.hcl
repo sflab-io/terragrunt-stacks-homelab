@@ -18,6 +18,9 @@ locals {
     normal   = true
     wildcard = true
   }
+
+  # Set to empty list to avoid try to add the vm to netbox before netbox is available.
+  virtual_machines = []
 }
 
 stack "homelab_proxmox_vm" {
@@ -44,6 +47,6 @@ stack "homelab_proxmox_vm" {
     ssh_public_key_path = local.env.ansible_ssh_public_key_path
 
     # Set to empty list to avoid try to add the vm to netbox before netbox is available.
-    virtual_machines = []
+    virtual_machines = local.virtual_machines
   }
 }
