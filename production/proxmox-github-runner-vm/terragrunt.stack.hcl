@@ -2,6 +2,8 @@ locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
   app = "github-runner"
+  memory    = 4096
+  disk_size = 16000
 
   network_config = {
     type = "dhcp"
