@@ -18,11 +18,12 @@ locals {
   cluster_name = local.env.netbox_cluster_name
   tenant_name  = local.env.netbox_tenant_name
   site_name    = local.env.netbox_site_name
-  role_name    = "Docker"
+  role_name    = "Docker Host"
 }
 
 stack "homelab_proxmox_vm" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
+
   path   = "homelab-proxmox-vm"
 
   values = {
