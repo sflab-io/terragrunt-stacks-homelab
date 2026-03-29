@@ -3,7 +3,7 @@ locals {
 
   app       = "gitlab-runner"
   memory    = 4096
-  disk_size = 16
+  disk_size = 16000
 
   network_config = {
     type = "dhcp"

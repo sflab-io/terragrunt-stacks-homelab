@@ -3,7 +3,7 @@ locals {
 
   app       = "docker"
   memory    = 2048
-  disk_size = 8
+  disk_size = 8000
 
   network_config = {
     type = "dhcp"

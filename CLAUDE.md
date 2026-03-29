@@ -291,7 +291,7 @@ locals {
 
   app       = "myapp"
   memory    = 4096
-  disk_size = 8
+  disk_size = 8000
 
   # Example: DHCP network configuration
   network_config = {
@@ -353,7 +353,7 @@ locals {
 
   app       = "my-runner"
   memory    = 4096
-  disk_size = 8
+  disk_size = 8000
 
   network_config = {
     type = "dhcp"

@@ -3,7 +3,7 @@ locals {
 
   app       = "example-lxc"
   memory    = 4096
-  disk_size = 8
+  disk_size = 8000
 
   network_config = {
     type        = "static"
