@@ -517,7 +517,7 @@ This removes:
    - Network: DHCP
    - DNS records: normal only (no wildcard)
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - NetBox role: `"GitHub Runner"`
+   - NetBox role: `"Github Runner"`
 
 6. **proxmox-gitlab-runner-vm** (`staging/proxmox-gitlab-runner-vm/`)
    - Purpose: GitLab CI runner VM
@@ -619,7 +619,7 @@ This removes:
    - Network: DHCP
    - DNS records: normal only (no wildcard)
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - NetBox role: `"GitHub Runner"`
+   - NetBox role: `"Github Runner"`
 
 6. **proxmox-gitlab-runner-vm** (`production/proxmox-gitlab-runner-vm/`)
    - Purpose: GitLab CI runner VM (production)
