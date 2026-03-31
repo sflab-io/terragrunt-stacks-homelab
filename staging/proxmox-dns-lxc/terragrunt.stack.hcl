@@ -24,8 +24,6 @@ locals {
   cluster_name = local.env.netbox_cluster_name
   tenant_name  = local.env.netbox_tenant_name
   site_name    = local.env.netbox_site_name
-  role_name_dns1 = "DNS 1"
-  role_name_dns2 = "DNS 2"
 }
 
 stack "proxmox_lxc_1" {
@@ -46,7 +44,6 @@ stack "proxmox_lxc_1" {
     cluster_name = local.cluster_name
     tenant_name  = local.tenant_name
     site_name    = local.site_name
-    role_name    = local.role_name_dns1
   }
 }
 
@@ -68,6 +65,5 @@ stack "proxmox_lxc_2" {
     cluster_name = local.cluster_name
     tenant_name  = local.tenant_name
     site_name    = local.site_name
-    role_name    = local.role_name_dns2
   }
 }
