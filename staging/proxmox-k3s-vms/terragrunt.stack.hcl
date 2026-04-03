@@ -22,23 +22,10 @@ locals {
   shared_tags  = ["${local.app}-${local.env.environment_name}"]
 }
 
-unit "k3s_shared_tags" {
-  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/netbox-tags?ref=${local.env.catalog_version}"
-
-  path = "${local.app}-shared-tags"
-
-  values = {
-    version = local.env.catalog_version
-    tags    = local.shared_tags
-  }
-}
-
 stack "vm_cp1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "${local.app}-cp1"
-
-  depends_on = [unit.k3s_shared_tags]
 
   values = {
     version = local.env.catalog_version
@@ -69,8 +56,6 @@ stack "vm_w1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "${local.app}-w1"
-
-  depends_on = [unit.k3s_shared_tags]
 
   values = {
     version = local.env.catalog_version
