@@ -19,14 +19,26 @@ locals {
   cluster_name = local.env.netbox_cluster_name
   tenant_name  = local.env.netbox_tenant_name
   site_name    = local.env.netbox_site_name
-  # k3s-staging
-  tags         = ["${local.app}-${local.env.environment_name}"]
+  shared_tags  = ["${local.app}-${local.env.environment_name}"]
+}
+
+unit "k3s_shared_tags" {
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//units/netbox-tags?ref=${local.env.catalog_version}"
+
+  path = "${local.app}-shared-tags"
+
+  values = {
+    version = local.env.catalog_version
+    tags    = local.shared_tags
+  }
 }
 
 stack "vm_cp1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "${local.app}-cp1"
+
+  depends_on = [unit.k3s_shared_tags]
 
   values = {
     version = local.env.catalog_version
@@ -49,8 +61,7 @@ stack "vm_cp1" {
     tenant_name  = local.tenant_name
     site_name    = local.site_name
     tags         = ["${local.app}-cp1-${local.env.environment_name}"]
-    # k3s-staging, k3s-cp1-staging
-    # tags         = concat(local.tags, ["${local.app}-cp1-${local.env.environment_name}"])
+    extra_tags   = local.shared_tags
   }
 }
 
@@ -58,6 +69,8 @@ stack "vm_w1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
   path = "${local.app}-w1"
+
+  depends_on = [unit.k3s_shared_tags]
 
   values = {
     version = local.env.catalog_version
@@ -80,7 +93,6 @@ stack "vm_w1" {
     tenant_name  = local.tenant_name
     site_name    = local.site_name
     tags         = ["${local.app}-w1-${local.env.environment_name}"]
-    # k3s-staging, k3s-w1-staging
-    # tags         = concat(local.tags, ["${local.app}-w1-${local.env.environment_name}"])
+    extra_tags   = local.shared_tags
   }
 }
