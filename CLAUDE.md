@@ -517,7 +517,7 @@ This removes:
    - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-5. **proxmox-github-runner-vm** (`staging/proxmox-github-runner-vm/`)
+6. **proxmox-github-runner-vm** (`staging/proxmox-github-runner-vm/`)
    - Purpose: GitHub Actions runner VM
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
@@ -527,17 +527,18 @@ This removes:
    - SSH key: `keys/admin_id_ecdsa.pub`
    - NetBox role: `"Github Runner"`
 
-6. **proxmox-gitlab-runner-vm** (`staging/proxmox-gitlab-runner-vm/`)
+7. **proxmox-gitlab-runner-vm** (`staging/proxmox-gitlab-runner-vm/`)
    - Purpose: GitLab CI runner VM
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: DHCP
    - DNS records: normal only (no wildcard)
+   - Memory: 4096MB, Disk: 16GB
+   - CPU type: `host` (required for Dagger support)
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - NetBox role: `"Gitlab Runner"`
 
-7. **proxmox-dns-lxc** (`staging/proxmox-dns-lxc/`)
+8. **proxmox-dns-lxc** (`staging/proxmox-dns-lxc/`)
    - Purpose: Technitium DNS servers (primary and secondary) for homelab DNS infrastructure
    - Contains: `proxmox_lxc_1`, `proxmox_lxc_2` stacks (app names: `technitium-dns-1`, `technitium-dns-2`)
    - References: `pool-staging` from proxmox-pool stack
@@ -550,7 +551,7 @@ This removes:
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
-8. **proxmox-netbox-vm** (`staging/proxmox-netbox-vm/`)
+9. **proxmox-netbox-vm** (`staging/proxmox-netbox-vm/`)
    - Purpose: NetBox IPAM/DCIM VM for network documentation
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
@@ -562,16 +563,16 @@ This removes:
    - SSH key: `keys/ansible_id_ecdsa.pub`
    - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
 
-9. **proxmox-example-vm** (`staging/proxmox-example-vm/`)
-   - Purpose: Example/template VM stack for reference
-   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
-   - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
-   - DNS records: normal only (no wildcard)
-   - Memory: 4096MB, Disk: 8GB
-   - SSH key: `keys/ansible_id_ecdsa.pub`
-   - NetBox role: `"Example VM"`
+10. **proxmox-example-vm** (`staging/proxmox-example-vm/`)
+    - Purpose: Example/template VM stack for reference
+    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+    - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
+    - DNS records: normal only (no wildcard)
+    - Memory: 4096MB, Disk: 8GB
+    - SSH key: `keys/ansible_id_ecdsa.pub`
+    - NetBox role: `"Example VM"`
 
-10. **proxmox-example-lxc** (`staging/proxmox-example-lxc/`)
+11. **proxmox-example-lxc** (`staging/proxmox-example-lxc/`)
     - Purpose: Example/template LXC stack for reference
     - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
     - Network: Static IP (192.168.1.44/24, gateway 192.168.1.1)
@@ -599,16 +600,23 @@ This removes:
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
 3. **proxmox-k3s-vms** (`production/proxmox-k3s-vms/`)
-   - Purpose: K3s Kubernetes cluster VMs (control plane and worker nodes)
-   - Contains: `vm_cp1`, `vm_w1` stacks (2 nodes: 1 control plane, 1 worker)
+   - Purpose: K3s Kubernetes cluster VMs — HA setup (3 control planes + 2 workers)
+   - Contains: `vm_cp1`, `vm_cp2`, `vm_cp3`, `vm_w1`, `vm_w2` stacks
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
-   - Network: DHCP (no explicit network_config set)
+   - Network: DHCP
    - DNS records: normal only
-   - Memory: 4096MB, Cores: 2
+   - Memory: 4096MB, Cores: 2, Disk: 32GB
    - SSH key: `keys/admin_id_ecdsa.pub`
+   - Tags: node-specific tags + shared `k3s-production` tag (via `extra_tags`)
 
-4. **proxmox-vault-vm** (`production/proxmox-vault-vm/`)
+4. **proxmox-k3s-shared-tags** (`production/proxmox-k3s-shared-tags/`)
+   - Purpose: NetBox tags shared across all K3s nodes
+   - Contains: `k3s_shared_tags` unit
+   - Tags: `["k3s-production"]`
+   - Note: Uses `units/netbox-tags` catalog unit
+
+5. **proxmox-vault-vm** (`production/proxmox-vault-vm/`)
    - Purpose: HashiCorp Vault VM for secrets management (production)
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
@@ -619,7 +627,7 @@ This removes:
    - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-5. **proxmox-github-runner-vm** (`production/proxmox-github-runner-vm/`)
+6. **proxmox-github-runner-vm** (`production/proxmox-github-runner-vm/`)
    - Purpose: GitHub Actions runner VM (production)
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
@@ -629,17 +637,18 @@ This removes:
    - SSH key: `keys/admin_id_ecdsa.pub`
    - NetBox role: `"Github Runner"`
 
-6. **proxmox-gitlab-runner-vm** (`production/proxmox-gitlab-runner-vm/`)
+7. **proxmox-gitlab-runner-vm** (`production/proxmox-gitlab-runner-vm/`)
    - Purpose: GitLab CI runner VM (production)
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
    - DNS zone: `home.sflab.io.`
    - Network: DHCP
    - DNS records: normal only (no wildcard)
+   - Memory: 4096MB, Disk: 16GB
+   - CPU type: `host` (required for Dagger support)
    - SSH key: `keys/admin_id_ecdsa.pub`
-   - NetBox role: `"Gitlab Runner"`
 
-7. **proxmox-dns-lxc** (`production/proxmox-dns-lxc/`)
+8. **proxmox-dns-lxc** (`production/proxmox-dns-lxc/`)
    - Purpose: Technitium DNS secondary server for homelab DNS infrastructure
    - Contains: `proxmox_lxc` stack (app name: `technitium-dns-secondary`)
    - References: `pool-production` from proxmox-pool stack
@@ -651,7 +660,7 @@ This removes:
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
-8. **proxmox-netbox-vm** (`production/proxmox-netbox-vm/`)
+9. **proxmox-netbox-vm** (`production/proxmox-netbox-vm/`)
    - Purpose: NetBox IPAM/DCIM VM for network documentation (production)
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-production` from proxmox-pool stack
@@ -663,16 +672,16 @@ This removes:
    - SSH key: `keys/ansible_id_ecdsa.pub`
    - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
 
-9. **proxmox-example-vm** (`production/proxmox-example-vm/`)
-   - Purpose: Example/template VM stack for reference (production)
-   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
-   - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
-   - DNS records: normal only (no wildcard)
-   - Memory: 4096MB, Disk: 8GB
-   - SSH key: `keys/ansible_id_ecdsa.pub`
-   - NetBox role: `"Example VM"`
+10. **proxmox-example-vm** (`production/proxmox-example-vm/`)
+    - Purpose: Example/template VM stack for reference (production)
+    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+    - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
+    - DNS records: normal only (no wildcard)
+    - Memory: 4096MB, Disk: 8GB
+    - SSH key: `keys/ansible_id_ecdsa.pub`
+    - NetBox role: `"Example VM"`
 
-10. **proxmox-example-lxc** (`production/proxmox-example-lxc/`)
+11. **proxmox-example-lxc** (`production/proxmox-example-lxc/`)
     - Purpose: Example/template LXC stack for reference (production)
     - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
     - Network: Static IP (192.168.1.44/24, gateway 192.168.1.1)
