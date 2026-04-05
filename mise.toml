@@ -1,4 +1,5 @@
 [tools]
+dagger = "0.19.3"
 go = "1.24.2"
 opentofu = "1.11.5"
 terragrunt = "0.99.4"
