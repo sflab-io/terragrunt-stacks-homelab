@@ -32,9 +32,17 @@ else
   SELECTED_STACK+=("${usage_target}")
 fi
 
-cd "$MISE_CONFIG_ROOT/$ENVIRONMENT/$SELECTED_STACK"
-
-CMD="terragrunt stack run plan"
+CMD="dagger call stack-plan \
+  --source $MISE_CONFIG_ROOT \
+  --stack-dir $ENVIRONMENT/$SELECTED_STACK \
+  --aws-access-key-id=$AWS_ACCESS_KEY_ID \
+  --aws-secret-access-key=env:AWS_SECRET_ACCESS_KEY \
+  --proxmox-ve-endpoint=$PROXMOX_VE_ENDPOINT \
+  --proxmox-ve-api-token=env:PROXMOX_VE_API_TOKEN \
+  --netbox-token=env:NETBOX_API_TOKEN \
+  --dns-key-secret=env:TF_VAR_dns_key_secret \
+  --proxmox-container-password=env:PROXMOX_CONTAINER_PASSWORD \
+  --ssh-socket=unix://$SSH_AUTH_SOCK"
 
 echo ""
 echo "🚀 Executing 'mise run terragrunt:stack:plan $ENVIRONMENT $SELECTED_STACK'"
