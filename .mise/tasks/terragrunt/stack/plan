@@ -32,17 +32,21 @@ else
   SELECTED_STACK+=("${usage_target}")
 fi
 
+export TF_VAR_netbox_token="${NETBOX_API_TOKEN}"
+
 CMD="dagger call stack-plan \
   --source $MISE_CONFIG_ROOT \
   --stack-dir $ENVIRONMENT/$SELECTED_STACK \
-  --aws-access-key-id=$AWS_ACCESS_KEY_ID \
-  --aws-secret-access-key=env:AWS_SECRET_ACCESS_KEY \
-  --proxmox-ve-endpoint=$PROXMOX_VE_ENDPOINT \
-  --proxmox-ve-api-token=env:PROXMOX_VE_API_TOKEN \
-  --netbox-token=env:NETBOX_API_TOKEN \
-  --dns-key-secret=env:TF_VAR_dns_key_secret \
-  --proxmox-container-password=env:PROXMOX_CONTAINER_PASSWORD \
-  --ssh-socket=unix://$SSH_AUTH_SOCK"
+  --ssh-socket=unix://$SSH_AUTH_SOCK \
+  --env-vars AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+  --env-vars PROXMOX_VE_ENDPOINT=$PROXMOX_VE_ENDPOINT \
+  --env-vars PROXMOX_VE_INSECURE=true \
+  --env-vars AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+  --env-vars PROXMOX_VE_API_TOKEN=$PROXMOX_VE_API_TOKEN \
+  --env-vars NETBOX_API_TOKEN=$NETBOX_API_TOKEN \
+  --env-vars TF_VAR_netbox_token=$TF_VAR_netbox_token \
+  --env-vars TF_VAR_dns_key_secret=$TF_VAR_dns_key_secret \
+  --env-vars PROXMOX_CONTAINER_PASSWORD=$PROXMOX_CONTAINER_PASSWORD"
 
 echo ""
 echo "🚀 Executing 'mise run terragrunt:stack:plan $ENVIRONMENT $SELECTED_STACK'"
