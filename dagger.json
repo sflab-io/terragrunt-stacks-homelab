@@ -1,6 +1,6 @@
 {
   "name": "terragrunt-stacks-homelab",
-  "engineVersion": "v0.19.3",
+  "engineVersion": "v0.20.3",
   "sdk": {
     "source": "typescript"
   },
