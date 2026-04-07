@@ -81,3 +81,33 @@ stack "vm_w1" {
     extra_tags   = local.shared_tags
   }
 }
+
+stack "vm_w2" {
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
+
+  path = "${local.app}-w2"
+
+  values = {
+    version = local.env.catalog_version
+
+    app = "${local.app}-w2"
+    env = local.env.environment_name
+
+    cores     = local.cores
+    memory    = local.memory
+    disk_size = local.disk_size
+
+    record_types = local.record_types
+    dns_zone     = local.env.zone
+
+    pool_id             = local.env.pool_id
+    ssh_public_key_path = local.env.admin_ssh_public_key_path
+
+    #
+    cluster_name = local.cluster_name
+    tenant_name  = local.tenant_name
+    site_name    = local.site_name
+    tags         = ["${local.app}-w2-${local.env.environment_name}"]
+    extra_tags   = local.shared_tags
+  }
+}
