@@ -34,7 +34,7 @@ fi
 
 export TF_VAR_netbox_token="${NETBOX_API_TOKEN}"
 
-CMD="dagger call stack-plan \
+CMD="dagger call plan \
   --source $MISE_CONFIG_ROOT \
   --stack-dir $ENVIRONMENT/$SELECTED_STACK \
   --ssh-socket=unix://$SSH_AUTH_SOCK \

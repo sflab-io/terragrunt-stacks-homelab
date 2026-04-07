@@ -4,5 +4,12 @@
   "sdk": {
     "source": "typescript"
   },
+  "dependencies": [
+    {
+      "name": "terragrunt",
+      "source": "gitlab.com/abes140377/daggerverse/terragrunt@main",
+      "pin": "a7054249129f402701761b0edbfd2375d5471fc6"
+    }
+  ],
   "source": ".dagger"
 }
