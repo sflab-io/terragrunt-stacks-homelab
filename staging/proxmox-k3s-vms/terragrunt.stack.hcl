@@ -4,7 +4,7 @@ locals {
   app    = "k3s"
   memory = 4096
   cores  = 2
-  disk_size = 16
+  disk_size = 32
 
   network_config = {
     type = "dhcp"
@@ -22,6 +22,9 @@ locals {
   shared_tags  = ["${local.app}-${local.env.environment_name}"]
 }
 
+# =======================
+# K3s Control Plane Nodes
+# =======================
 stack "vm_cp1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
@@ -52,6 +55,9 @@ stack "vm_cp1" {
   }
 }
 
+# ================
+# K3s Worker Nodes
+# ================
 stack "vm_w1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 

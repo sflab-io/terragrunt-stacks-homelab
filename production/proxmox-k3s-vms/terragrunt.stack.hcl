@@ -54,6 +54,7 @@ stack "vm_cp1" {
     extra_tags   = local.shared_tags
   }
 }
+
 stack "vm_cp2" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
@@ -83,6 +84,7 @@ stack "vm_cp2" {
     extra_tags   = local.shared_tags
   }
 }
+
 stack "vm_cp3" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
@@ -145,6 +147,7 @@ stack "vm_w1" {
     extra_tags   = local.shared_tags
   }
 }
+
 stack "vm_w2" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
