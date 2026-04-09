@@ -2,6 +2,7 @@ locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
   app = "github-runner"
+  cpu_type  = "host" # running dagger on gitlab runner requires VM CPU-Typ 'host' instead of 'qemu64' (default)
 
   network_config = {
     type = "dhcp"
@@ -28,6 +29,8 @@ stack "homelab_proxmox_vm" {
 
     app = local.app
     env = local.env.environment_name
+
+    cpu_type = local.cpu_type
 
     network_config = local.network_config
 

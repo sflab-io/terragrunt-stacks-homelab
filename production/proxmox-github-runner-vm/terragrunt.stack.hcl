@@ -4,6 +4,7 @@ locals {
   app = "github-runner"
   memory    = 4096
   disk_size = 16000
+  cpu_type  = "host" # running dagger on gitlab runner requires VM CPU-Typ 'host' instead of 'qemu64' (default)
 
   network_config = {
     type = "dhcp"
@@ -30,6 +31,10 @@ stack "homelab_proxmox_vm" {
 
     app = local.app
     env = local.env.environment_name
+
+    memory    = local.memory
+    disk_size = local.disk_size
+    cpu_type  = local.cpu_type
 
     network_config = local.network_config
 
