@@ -7,8 +7,8 @@
   "dependencies": [
     {
       "name": "terragrunt",
-      "source": "gitlab.com/abes140377/daggerverse/terragrunt@main",
-      "pin": "a7054249129f402701761b0edbfd2375d5471fc6"
+      "source": "gitlab.com/abes140377/daggerverse/terragrunt@c2d3efa7674333a7d1f1d92406e691f4cc32f24f",
+      "pin": "c2d3efa7674333a7d1f1d92406e691f4cc32f24f"
     }
   ],
   "source": ".dagger"

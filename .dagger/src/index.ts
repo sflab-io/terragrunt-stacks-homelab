@@ -16,7 +16,9 @@ export class TerragruntStacksHomelab {
     sshSocket: Socket,
     envVars: string[],
   ): Promise<string> {
-    return dag.terragrunt().stackGenerate(source, stackDir, sshSocket, envVars)
+    const command = "stack run generate"
+
+    return dag.terragrunt().run(source, stackDir, sshSocket, command, { envVars })
   }
 
   @func()
@@ -26,7 +28,9 @@ export class TerragruntStacksHomelab {
     sshSocket: Socket,
     envVars: string[],
   ): Promise<string> {
-    return dag.terragrunt().stackPlan(source, stackDir, sshSocket, envVars)
+    const command = "stack run plan"
+
+    return dag.terragrunt().run(source, stackDir, sshSocket, command, { envVars })
   }
 
   @func()
@@ -36,7 +40,8 @@ export class TerragruntStacksHomelab {
     sshSocket: Socket,
     envVars: string[],
   ): Promise<string> {
-    return dag.terragrunt().stackApply(source, stackDir, sshSocket, envVars)
+    const command = "stack run apply --non-interactive"
+    return dag.terragrunt().run(source, stackDir, sshSocket, command, { envVars })
   }
 
   @func()
@@ -46,7 +51,9 @@ export class TerragruntStacksHomelab {
     sshSocket: Socket,
     envVars: string[],
   ): Promise<string> {
-    return dag.terragrunt().stackOutput(source, stackDir, sshSocket, envVars)
+    const command = "stack run output"
+
+    return dag.terragrunt().run(source, stackDir, sshSocket, command, { envVars })
   }
 
   @func()
@@ -56,6 +63,8 @@ export class TerragruntStacksHomelab {
     sshSocket: Socket,
     envVars: string[],
   ): Promise<string> {
-    return dag.terragrunt().stackDestroy(source, stackDir, sshSocket, envVars)
+    const command = "stack run destroy --non-interactive"
+
+    return dag.terragrunt().run(source, stackDir, sshSocket, command, { envVars })
   }
 }
