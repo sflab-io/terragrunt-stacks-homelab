@@ -1,5 +1,5 @@
 [tools]
-dagger = "0.20.3"
+"aqua:dagger" = "latest"
 go = "1.24.2"
 opentofu = "1.11.5"
 terragrunt = "0.99.4"
