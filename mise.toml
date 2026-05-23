@@ -1,6 +1,6 @@
 [tools]
 "aqua:dagger" = "latest"
-go = "1.24.2"
+go = "1.26.3"
 opentofu = "1.11.5"
 terragrunt = "0.99.4"
 mc = "latest"
