@@ -2,7 +2,7 @@ locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
   app       = "example-vm"
-  memory    = 4096
+  memory    = 2048
   disk_size = 8000
 
   network_config = {
