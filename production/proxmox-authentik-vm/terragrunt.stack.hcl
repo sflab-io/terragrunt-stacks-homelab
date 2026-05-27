@@ -2,7 +2,7 @@ locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
   app       = "authentik"
-  memory    = 2048
+  memory    = 4096
   disk_size = 8000
 
   network_config = {

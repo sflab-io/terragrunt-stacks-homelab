@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+#MISE description="Applies the given Terragrunt stack."
+
+#USAGE arg "<env>" help="The environment to use" default=""
+#USAGE arg "<target>" help="The target unit" default=""
+#USAGE flag "-d --dry-run" help="Show the commands without executing it"
+#USAGE flag "-y --yes" help="Automatic yes to prompts" default="false"
+
+#MISE raw=true
+
+set -e
+
+if [[ -z "${usage_env:-}" ]]; then
+  ENVIRONMENT=$(printf "staging\nproduction" | gum filter --fuzzy --placeholder "Select an environment:")
+else
+  ENVIRONMENT="${usage_env}"
+fi
+echo "Selected environment: $ENVIRONMENT"
+
+cd "$MISE_CONFIG_ROOT/$ENVIRONMENT"
+
+if [[ -z "${usage_target:-}" ]]; then
+  stack_dirs=()
+
+  while IFS= read -r -d '' dir; do
+    stack_dirs+=("$(basename "$dir")")
+  done < <(find "." -mindepth 1 -maxdepth 1 -type d -print0)
+
+  # Show a selection menu with gum to select a unit
+  SELECTED_STACK=$(printf "%s\n" "${stack_dirs[@]}" | gum filter --fuzzy --placeholder "Select a stack to operate on:")
+else
+  SELECTED_STACK+=("${usage_target}")
+fi
+
+cd "$MISE_CONFIG_ROOT/$ENVIRONMENT/$SELECTED_STACK"
+
+CMD="terragrunt stack run apply"
+if [ "${usage_yes?}" = "true" ]; then
+  CMD+=" --non-interactive"
+fi
+
+echo ""
+echo "🚀 Executing 'mise run terragrunt:stack:apply $ENVIRONMENT $SELECTED_STACK'"
+echo "   Commands: $CMD"
+echo "   Working dir: $(pwd)"
+echo ""
+
+if [ "$usage_dry_run" = "true" ]; then
+  echo "Dry run mode. Command not executed."
+  exit 0
+fi
+
+eval $CMD
