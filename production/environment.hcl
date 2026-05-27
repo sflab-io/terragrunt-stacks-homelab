@@ -14,7 +14,7 @@ locals {
   admin_ssh_public_key_path   = "${get_terragrunt_dir()}/../keys/admin_id_ecdsa.pub"
 
   # NetBox configuration
-  netbox_cluster_name = "Proxmox Production"
-  netbox_tenant_name  = "Platform Team"
-  netbox_site_name    = "SFLAB Homelab Production"
+  netbox_cluster_name = "proxmox-production"
+  netbox_tenant_name  = "platform-team"
+  netbox_site_name    = "sflab-homelab-production"
 }
