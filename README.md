@@ -10,6 +10,7 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 - **[OpenTofu](https://opentofu.org/)** - Open-source Terraform fork
 - **[Proxmox](https://www.proxmox.com/)** - Virtualization platform
 - **[MinIO](https://min.io/)** - S3-compatible backend for state storage
+- **[Dagger](https://dagger.io/)** - CI/CD pipeline for running stack operations
 - **[mise](https://mise.jdx.dev/)** - Development tool version management
 
 ## Repository Structure
@@ -19,6 +20,8 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 ├── root.hcl                    # Global Terragrunt configuration
 ├── provider-proxmox-config.hcl # Proxmox provider settings
 ├── provider-dns-config.hcl     # DNS provider settings
+├── dagger.json                 # Dagger module configuration
+├── .dagger/                    # Dagger TypeScript module source
 ├── mise.toml                   # Tool version management
 ├── keys/                       # SSH public keys
 │   ├── ansible_id_ecdsa.pub
@@ -28,8 +31,11 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 │   ├── backend-config.hcl
 │   ├── provider-netbox-config.hcl
 │   ├── proxmox-pool/
-│   ├── proxmox-docker-vm/
+│   ├── proxmox-authentik-vm/
 │   ├── proxmox-k3s-vms/
+│   ├── proxmox-k3s-shared-tags/
+│   ├── proxmox-mgm-cluster/
+│   ├── proxmox-mgm-shared-tags/
 │   ├── proxmox-vault-vm/
 │   ├── proxmox-github-runner-vm/
 │   ├── proxmox-gitlab-runner-vm/
@@ -41,14 +47,23 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
     ├── environment.hcl
     ├── backend-config.hcl
     ├── provider-netbox-config.hcl
-    └── [same stacks as staging]
+    ├── proxmox-pool/
+    ├── proxmox-authentik-vm/
+    ├── proxmox-mgm-cluster/
+    ├── proxmox-mgm-shared-tags/
+    ├── proxmox-vault-vm/
+    ├── proxmox-github-runner-vm/
+    ├── proxmox-gitlab-runner-vm/
+    ├── proxmox-dns-lxc/
+    ├── proxmox-netbox-vm/
+    ├── proxmox-example-vm/
+    └── proxmox-example-lxc/
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- **SSH agent** with Proxmox SSH key loaded
 - **Environment variables** configured (see [Configuration](#configuration))
 - **mise** installed ([installation guide](https://mise.jdx.dev/getting-started.html))
 
@@ -86,11 +101,11 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 
 2. **Deploy application stacks**
    ```bash
-   # Interactive mode (recommended)
+   # Interactive mode via Dagger (recommended)
    mise run terragrunt:stack:apply
 
    # Or navigate to specific stack
-   cd staging/proxmox-docker-vm
+   cd staging/proxmox-vault-vm
    terragrunt stack run apply
    ```
 
@@ -107,14 +122,18 @@ AWS_SECRET_ACCESS_KEY=<minio-secret-key>
 MINIO_USERNAME=<minio-admin-username>
 MINIO_PASSWORD=<minio-admin-password>
 
+# Proxmox API authentication
+PROXMOX_VE_ENDPOINT=https://proxmox.home.sflab.io:8006
+PROXMOX_VE_API_TOKEN=<proxmox-api-token>
+
+# NetBox API token (for IPAM/DCIM registration)
+NETBOX_API_TOKEN=<netbox-api-token>
+
 # LXC containers (dns-lxc, example-lxc stacks)
 PROXMOX_CONTAINER_PASSWORD=<container-password>
 
 # DNS dynamic updates
 TF_VAR_dns_key_secret=<dns-tsig-key-secret>
-
-# NetBox API token (for IPAM/DCIM registration)
-TF_VAR_netbox_token=<netbox-api-token>
 ```
 
 Environment variables are loaded from:
@@ -125,9 +144,10 @@ Environment variables are loaded from:
 ### Tool Versions
 
 Managed automatically via `mise.toml`:
-- **Go**: 1.24.2
-- **OpenTofu**: 1.11.5
-- **Terragrunt**: 0.99.4
+- **Go**: 1.26.3
+- **OpenTofu**: 1.12.1
+- **Terragrunt**: 1.0.6
+- **Dagger**: latest
 - **MinIO Client**: latest
 
 ## Common Commands
@@ -142,11 +162,15 @@ mise tasks
 mise run minio:setup              # Setup MinIO backend
 mise run minio:list               # List bucket contents
 
-# Terragrunt stack operations (interactive)
+# Terragrunt stack operations via Dagger (interactive)
 mise run terragrunt:stack:plan    # Plan stack changes
 mise run terragrunt:stack:apply   # Apply stack changes
 mise run terragrunt:stack:destroy # Destroy stack resources
 mise run terragrunt:stack:output  # View stack outputs
+
+# Direct terragrunt (bypasses Dagger, uses --provider-cache)
+mise run terragrunt:stack:apply-old
+mise run terragrunt:stack:plan-old
 
 # Utilities
 mise run terragrunt:cleanup       # Clean cache directories
@@ -155,22 +179,27 @@ mise run network:status           # View network status
 mise run secrets:edit <file>      # Edit SOPS-encrypted secrets
 ```
 
-### Terragrunt Commands
+All interactive tasks accept optional positional arguments:
+```bash
+mise run terragrunt:stack:apply staging proxmox-vault-vm
+```
+
+### Terragrunt Commands (Direct)
 
 ```bash
 # Navigate to stack directory
-cd staging/proxmox-docker-vm
+cd staging/proxmox-vault-vm
 
 # Stack operations
-terragrunt stack run plan         # Preview changes
-terragrunt stack run apply        # Apply changes
-terragrunt stack run destroy      # Destroy resources
-terragrunt stack generate         # Generate stack files
-terragrunt stack output           # View outputs
-terragrunt stack clean            # Clean generated files
+terragrunt stack run plan           # Preview changes
+terragrunt stack run apply          # Apply changes
+terragrunt stack run apply --non-interactive  # Apply without prompts
+terragrunt stack run destroy        # Destroy resources
+terragrunt stack run generate       # Generate stack files
+terragrunt stack run output         # View outputs
 
 # Catalog browsing
-terragrunt catalog                # Browse available modules
+terragrunt catalog                  # Browse available modules
 ```
 
 ## Infrastructure Stacks
@@ -180,8 +209,11 @@ terragrunt catalog                # Browse available modules
 | Stack | Purpose | Type | Network |
 |-------|---------|------|---------|
 | **proxmox-pool** | Resource pool | Unit | - |
-| **proxmox-docker-vm** | Docker host | VM + DNS | DHCP |
-| **proxmox-k3s-vms** | K3s cluster (1 CP + 1 Worker) | 2× VM + DNS | DHCP |
+| **proxmox-authentik-vm** | Authentik SSO | VM + DNS | DHCP |
+| **proxmox-k3s-vms** | K3s cluster (1 CP + 2 Workers) | 3× VM + DNS | DHCP |
+| **proxmox-k3s-shared-tags** | K3s shared NetBox tags | Unit | - |
+| **proxmox-mgm-cluster** | Management K3s cluster (1 CP + 2 Workers) + NetBox K8s | 3× VM + DNS + K8s | DHCP |
+| **proxmox-mgm-shared-tags** | Mgm cluster shared NetBox tags | Unit | - |
 | **proxmox-vault-vm** | HashiCorp Vault | VM + DNS | Static (192.168.1.33) |
 | **proxmox-github-runner-vm** | GitHub Actions runner | VM + DNS | DHCP |
 | **proxmox-gitlab-runner-vm** | GitLab CI runner | VM + DNS | DHCP |
@@ -195,8 +227,9 @@ terragrunt catalog                # Browse available modules
 | Stack | Purpose | Type | Network |
 |-------|---------|------|---------|
 | **proxmox-pool** | Resource pool | Unit | - |
-| **proxmox-docker-vm** | Docker host | VM + DNS | DHCP |
-| **proxmox-k3s-vms** | K3s cluster (1 CP + 1 Worker) | 2× VM + DNS | DHCP |
+| **proxmox-authentik-vm** | Authentik SSO | VM + DNS | DHCP |
+| **proxmox-mgm-cluster** | Management K3s cluster HA (3 CP + 2 Workers) + NetBox K8s | 5× VM + DNS + K8s | DHCP |
+| **proxmox-mgm-shared-tags** | Mgm cluster shared NetBox tags | Unit | - |
 | **proxmox-vault-vm** | HashiCorp Vault | VM + DNS | Static (192.168.1.34) |
 | **proxmox-github-runner-vm** | GitHub Actions runner | VM + DNS | DHCP |
 | **proxmox-gitlab-runner-vm** | GitLab CI runner | VM + DNS | DHCP |
@@ -219,7 +252,7 @@ terragrunt catalog                # Browse available modules
      values = { ... }
    }
    ```
-   > **Note**: Use `stack {}` blocks for catalog stacks (VM, LXC). Only `proxmox-pool` uses `unit {}` blocks.
+   > **Note**: Use `stack {}` blocks for catalog stacks (VM, LXC, K8s cluster). Use `unit {}` blocks for `proxmox-pool` and `*-shared-tags` stacks.
 4. Plan and apply:
    ```bash
    terragrunt stack run plan
@@ -240,12 +273,20 @@ mise run terragrunt:cleanup
 ```
 
 **State backend issues:**
-- Verify MinIO accessibility: `http://192.168.1.20:9000`
+- Verify MinIO accessibility: `http://minio.home.sflab.io:9000`
 - Check credentials: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 
-**SSH authentication:**
-- Ensure SSH agent is running
-- Load Proxmox SSH key: `ssh-add ~/.ssh/proxmox_key`
+**Proxmox authentication:**
+- Ensure `PROXMOX_VE_API_TOKEN` and `PROXMOX_VE_ENDPOINT` are set
+
+**NetBox authentication:**
+- Ensure `NETBOX_API_TOKEN` is set
+
+**Dagger cache issues:**
+- If apply shows success but VM is missing, check state and use `-old` variant:
+  ```bash
+  mise run terragrunt:stack:apply-old
+  ```
 
 **DHCP IP conflicts:**
 - VMs cloned from same template may share `/etc/machine-id`
@@ -256,8 +297,12 @@ mise run terragrunt:cleanup
 ### Terragrunt Stacks Pattern
 
 - **Stack**: Collection of related infrastructure units
-- **Unit**: Single infrastructure component (VM, LXC, DNS record)
+- **Unit**: Single infrastructure component (VM, LXC, DNS record, K8s cluster)
 - **Catalog**: External repository with reusable modules
+
+### Dagger Integration
+
+Mise tasks delegate to a **Dagger module** (`.dagger/src/index.ts`) for running Terragrunt operations. Tasks with `-old` suffix bypass Dagger and call Terragrunt directly with `--provider-cache`.
 
 ### Shared Resources
 
@@ -273,7 +318,7 @@ mise run terragrunt:cleanup
 ### Configuration Hierarchy
 
 1. `root.hcl` - Global settings, backend config
-2. `provider-proxmox-config.hcl` - Proxmox provider (SSH agent auth)
+2. `provider-proxmox-config.hcl` - Proxmox provider (API token auth via `PROXMOX_VE_API_TOKEN`)
 3. `provider-dns-config.hcl` - DNS provider (TSIG key auth)
 4. `{environment}/provider-netbox-config.hcl` - NetBox provider (per environment)
 5. `{environment}/environment.hcl` - Environment variables + NetBox metadata
@@ -282,12 +327,14 @@ mise run terragrunt:cleanup
 
 ## Infrastructure Catalog
 
-External module repository: [terragrunt-infrastructure-catalog-homelab](https://github.com/sflab-io/terragrunt-infrastructure-catalog-homelab)
+External module repository: [terragrunt-catalog-homelab](https://github.com/sflab-io/terragrunt-catalog-homelab)
 
 **Available catalog items:**
 - `stacks/homelab-proxmox-vm` - Combined VM + DNS + NetBox stack (use `stack {}` block)
 - `stacks/homelab-proxmox-lxc` - Combined LXC + DNS + NetBox stack (use `stack {}` block)
+- `stacks/homelab-netbox-k8s-cluster` - NetBox Kubernetes cluster registration (use `stack {}` block)
 - `units/proxmox-pool` - Proxmox resource pool management (use `unit {}` block)
+- `units/netbox-tags` - NetBox tag management (use `unit {}` block)
 
 ## Important Notes
 
@@ -297,7 +344,7 @@ External module repository: [terragrunt-infrastructure-catalog-homelab](https://
 - Provider and backend configs are auto-generated by Terragrunt
 - Proxmox endpoint: `https://proxmox.home.sflab.io:8006/`
 - DNS server: `192.168.1.13:53`
-- NetBox: Staging at `http://netbox-staging.home.sflab.io`, Production at `http://netbox.home.sflab.io`
+- NetBox: `http://netbox.home.sflab.io` (both environments)
 - `proxmox-netbox-vm` must be deployed with `virtual_machines = []` on first run to avoid circular dependency
 
 ## Additional Resources
@@ -306,3 +353,4 @@ External module repository: [terragrunt-infrastructure-catalog-homelab](https://
 - **[Terragrunt Documentation](https://terragrunt.gruntwork.io/)**
 - **[OpenTofu Documentation](https://opentofu.org/docs/)**
 - **[Proxmox Documentation](https://pve.proxmox.com/pve-docs/)**
+- **[Dagger Documentation](https://docs.dagger.io/)**
