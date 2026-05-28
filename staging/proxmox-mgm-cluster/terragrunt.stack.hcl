@@ -2,7 +2,7 @@ locals {
   env    = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
   app    = "mgm"
-  memory = 4096
+  memory = 8192
   cores  = 2
   disk_size = 32
 
