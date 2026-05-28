@@ -1,8 +1,8 @@
 [tools]
 "aqua:dagger" = "latest"
 go = "1.26.3"
-opentofu = "1.11.5"
-terragrunt = "0.99.4"
+opentofu = "1.12.1"
+terragrunt = "1.0.6"
 mc = "latest"
 
 [env]
@@ -11,7 +11,8 @@ PROJECT_NAME = "{{ config_root | basename }}"
 _.file = [
   { path = "{{env.HOME}}/.env", optional = true },
   { path = ".env", optional = true },
-  { path = ".creds.env.yaml", redact = true }
+  { path = ".creds.env.yaml" }
+  # { path = ".creds.env.yaml", redact = true }
 ]
 _.path = ["./scripts"]
 
