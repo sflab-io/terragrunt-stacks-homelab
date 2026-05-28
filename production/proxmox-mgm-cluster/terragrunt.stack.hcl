@@ -1,7 +1,7 @@
 locals {
   env    = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app    = "k3s"
+  app    = "mgm"
   memory = 4096
   cores  = 2
   disk_size = 32
@@ -20,6 +20,9 @@ locals {
   tenant_name  = local.env.netbox_tenant_name
   site_name    = local.env.netbox_site_name
   shared_tags  = ["${local.app}-${local.env.environment_name}"]
+
+  # Path of the K8s cluster stack in this file (path attribute of stack "netbox_k8s_cluster")
+  cluster_stack_path = "netbox-k8s-cluster"
 }
 
 # =======================
@@ -47,11 +50,12 @@ stack "vm_cp1" {
     ssh_public_key_path = local.env.admin_ssh_public_key_path
 
     #
-    cluster_name = local.cluster_name
-    tenant_name  = local.tenant_name
-    site_name    = local.site_name
-    tags         = ["${local.app}-cp1-${local.env.environment_name}"]
-    extra_tags   = local.shared_tags
+    cluster_name       = local.cluster_name
+    tenant_name        = local.tenant_name
+    site_name          = local.site_name
+    tags               = ["${local.app}-cp1-${local.env.environment_name}"]
+    extra_tags         = local.shared_tags
+    cluster_stack_path = local.cluster_stack_path
   }
 }
 
@@ -77,11 +81,12 @@ stack "vm_cp2" {
     ssh_public_key_path = local.env.admin_ssh_public_key_path
 
     #
-    cluster_name = local.cluster_name
-    tenant_name  = local.tenant_name
-    site_name    = local.site_name
-    tags         = ["${local.app}-cp2-${local.env.environment_name}"]
-    extra_tags   = local.shared_tags
+    cluster_name       = local.cluster_name
+    tenant_name        = local.tenant_name
+    site_name          = local.site_name
+    tags               = ["${local.app}-cp2-${local.env.environment_name}"]
+    extra_tags         = local.shared_tags
+    cluster_stack_path = local.cluster_stack_path
   }
 }
 
@@ -107,11 +112,12 @@ stack "vm_cp3" {
     ssh_public_key_path = local.env.admin_ssh_public_key_path
 
     #
-    cluster_name = local.cluster_name
-    tenant_name  = local.tenant_name
-    site_name    = local.site_name
-    tags         = ["${local.app}-cp3-${local.env.environment_name}"]
-    extra_tags   = local.shared_tags
+    cluster_name       = local.cluster_name
+    tenant_name        = local.tenant_name
+    site_name          = local.site_name
+    tags               = ["${local.app}-cp3-${local.env.environment_name}"]
+    extra_tags         = local.shared_tags
+    cluster_stack_path = local.cluster_stack_path
   }
 }
 
@@ -140,11 +146,12 @@ stack "vm_w1" {
     ssh_public_key_path = local.env.admin_ssh_public_key_path
 
     #
-    cluster_name = local.cluster_name
-    tenant_name  = local.tenant_name
-    site_name    = local.site_name
-    tags         = ["${local.app}-w1-${local.env.environment_name}"]
-    extra_tags   = local.shared_tags
+    cluster_name       = local.cluster_name
+    tenant_name        = local.tenant_name
+    site_name          = local.site_name
+    tags               = ["${local.app}-w1-${local.env.environment_name}"]
+    extra_tags         = local.shared_tags
+    cluster_stack_path = local.cluster_stack_path
   }
 }
 
@@ -170,10 +177,34 @@ stack "vm_w2" {
     ssh_public_key_path = local.env.admin_ssh_public_key_path
 
     #
-    cluster_name = local.cluster_name
-    tenant_name  = local.tenant_name
-    site_name    = local.site_name
-    tags         = ["${local.app}-w2-${local.env.environment_name}"]
-    extra_tags   = local.shared_tags
+    cluster_name       = local.cluster_name
+    tenant_name        = local.tenant_name
+    site_name          = local.site_name
+    tags               = ["${local.app}-w2-${local.env.environment_name}"]
+    extra_tags         = local.shared_tags
+    cluster_stack_path = local.cluster_stack_path
+  }
+}
+
+# =======================
+# NetBox K8s Cluster
+# =======================
+stack "netbox_k8s_cluster" {
+  source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-netbox-k8s-cluster?ref=${local.env.catalog_version}"
+
+  path = "netbox-k8s-cluster"
+
+  values = {
+    version = local.env.catalog_version
+
+    clusters = [
+      {
+        name        = "${local.app}-${local.env.environment_name}"
+        tenant_name = local.env.netbox_tenant_name
+        site_name   = local.env.netbox_site_name
+        description = "Kubernetes Management Cluster (production)"
+        tags        = local.shared_tags
+      }
+    ]
   }
 }

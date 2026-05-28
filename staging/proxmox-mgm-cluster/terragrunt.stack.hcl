@@ -16,10 +16,11 @@ locals {
   }
 
   #
-  cluster_name       = local.env.netbox_cluster_name
-  tenant_name        = local.env.netbox_tenant_name
-  site_name          = local.env.netbox_site_name
-  shared_tags        = ["${local.app}-${local.env.environment_name}"]
+  cluster_name = local.env.netbox_cluster_name
+  tenant_name  = local.env.netbox_tenant_name
+  site_name    = local.env.netbox_site_name
+  shared_tags  = ["${local.app}-${local.env.environment_name}"]
+
   # Path of the K8s cluster stack in this file (path attribute of stack "netbox_k8s_cluster")
   cluster_stack_path = "netbox-k8s-cluster"
 }

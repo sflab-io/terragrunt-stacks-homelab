@@ -34,7 +34,7 @@ fi
 
 cd "$MISE_CONFIG_ROOT/$ENVIRONMENT/$SELECTED_STACK"
 
-CMD="terragrunt stack run plan"
+CMD="terragrunt stack run plan --provider-cache"
 
 echo ""
 echo "🚀 Executing 'mise run terragrunt:stack:plan $ENVIRONMENT $SELECTED_STACK'"

@@ -35,7 +35,7 @@ fi
 
 cd "$MISE_CONFIG_ROOT/$ENVIRONMENT/$SELECTED_STACK"
 
-CMD="terragrunt stack run destroy"
+CMD="terragrunt stack run destroy --provider-cache"
 if [ "${usage_yes?}" = "true" ]; then
   CMD+=" --non-interactive"
 fi
