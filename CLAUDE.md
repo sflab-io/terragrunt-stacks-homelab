@@ -23,6 +23,7 @@ The following tools are automatically installed and managed via `mise.toml`:
 - **Terragrunt**: 1.0.6
 - **Dagger**: latest (via `aqua:dagger`)
 - **mc (MinIO Client)**: latest
+- **Vault**: 1.21.1
 
 Run `mise install` to install all required tools, or simply enter the directory (mise will auto-install via hooks).
 
@@ -36,9 +37,14 @@ Run `mise install` to install all required tools, or simply enter the directory 
 ├── provider-dns-config.hcl     # DNS provider configuration
 ├── dagger.json                 # Dagger module configuration
 ├── .dagger/                    # Dagger TypeScript module source
+├── .teller.yml                 # Teller config for Vault secrets mapping
+├── .pre-commit-config.yaml     # Pre-commit hooks (gitleaks, tofu-fmt, catalog version check)
 ├── keys/                       # SSH public keys for VM access
 │   ├── ansible_id_ecdsa.pub    # Ansible SSH public key
 │   └── admin_id_ecdsa.pub      # Admin SSH public key
+├── scripts/                    # Helper scripts (added to PATH via mise)
+│   ├── load-vault-secrets.sh   # Sourced by mise on directory entry — loads Vault secrets via Teller
+│   └── check-staging-catalog-version.sh # Pre-commit hook: enforces catalog_version = "main" in staging
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
 │   ├── backend-config.hcl      # Environment-specific backend configuration
@@ -129,7 +135,7 @@ The repository uses a **proxmox-pool** stack pattern for environment-wide resour
   - Staging prefix: `staging-terragrunt` (defined in `staging/backend-config.hcl`)
   - Production prefix: `production-terragrunt` (defined in `production/backend-config.hcl`)
 - Requires environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-- MinIO endpoint: `http://minio.home.sflab.io:9000`
+- MinIO endpoint: `http://192.168.1.20:9000` (configured in `backend-config.hcl`)
 - Configuration is environment-specific via `backend-config.hcl` files
 
 ### Infrastructure Catalog
@@ -139,7 +145,7 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 - Referenced via git source URLs in stack definitions
 - Version pinning via `?ref=branch-or-tag`
   - Staging: `?ref=main` (tracks latest catalog changes via `catalog_version = "main"` in environment.hcl)
-  - Production: `?ref=v0.19.0` (pinned for stability via `catalog_version = "v0.19.0"` in environment.hcl)
+  - Production: `?ref=v0.20.0` (pinned for stability via `catalog_version = "v0.20.0"` in environment.hcl)
 
 **Available Catalog Items** (as used in current stacks):
 - `stacks/homelab-proxmox-vm`: Combined VM + DNS stack (use `stack {}` block)
@@ -147,6 +153,22 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 - `stacks/homelab-netbox-k8s-cluster`: NetBox Kubernetes cluster registration (use `stack {}` block)
 - `units/proxmox-pool`: Proxmox resource pool management (use `unit {}` block)
 - `units/netbox-tags`: NetBox tag management (use `unit {}` block)
+
+### Vault & Teller Integration
+
+The repository uses **Teller** (`.teller.yml`) to map HashiCorp Vault secrets to environment variables. This is automatically triggered on directory entry via `mise.toml` (`_.source = "./scripts/load-vault-secrets.sh"`):
+
+- **Vault address**: `https://vault.home.sflab.io:8200`
+- **Secrets loaded**:
+  - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN_PRODUCTION`
+  - `secrets_homelab/netbox_staging.api_token` → `NETBOX_API_TOKEN_STAGING`
+- **Token resolution order**: `$VAULT_TOKEN` env var → `~/.vault-token` file → AppRole login via `mise run vault:login` (requires `VAULT_ROLE_ID` + `VAULT_SECRET_ID`)
+- If no Vault credentials are available, the script exits silently (secrets stay unset)
+
+**Pre-commit hooks** (`.pre-commit-config.yaml`) enforce:
+- `gitleaks`: Secret scanning before every commit
+- `tofu-fmt` / `tofu-validate`: Terraform formatting and validation
+- `check-staging-catalog-version`: Prevents commits where staging `catalog_version` is not `"main"`
 
 ### Dagger Integration
 
@@ -262,21 +284,27 @@ terragrunt destroy
 These must be set before running Terragrunt commands:
 
 ```bash
-AWS_ACCESS_KEY_ID           # MinIO access key for state backend
-AWS_SECRET_ACCESS_KEY       # MinIO secret key for state backend
-MINIO_USERNAME              # MinIO admin username (for setup tasks)
-MINIO_PASSWORD              # MinIO admin password (for setup tasks)
-PROXMOX_VE_ENDPOINT         # Proxmox API endpoint (e.g., https://proxmox.home.sflab.io:8006)
-PROXMOX_VE_API_TOKEN        # Proxmox API token for authentication
-PROXMOX_CONTAINER_PASSWORD  # Password for LXC containers (for container stacks)
-NETBOX_API_TOKEN            # NetBox API token for IPAM/DCIM registration
-TF_VAR_dns_key_secret       # DNS TSIG key secret for dynamic DNS updates
+AWS_ACCESS_KEY_ID              # MinIO access key for state backend
+AWS_SECRET_ACCESS_KEY          # MinIO secret key for state backend
+MINIO_USERNAME                 # MinIO admin username (for setup tasks)
+MINIO_PASSWORD                 # MinIO admin password (for setup tasks)
+PROXMOX_VE_ENDPOINT            # Proxmox API endpoint (e.g., https://proxmox.home.sflab.io:8006)
+PROXMOX_VE_API_TOKEN           # Proxmox API token for authentication
+PROXMOX_CONTAINER_PASSWORD     # Password for LXC containers (for container stacks)
+NETBOX_API_TOKEN_PRODUCTION    # NetBox API token (production) — auto-loaded via Teller from Vault
+NETBOX_API_TOKEN_STAGING       # NetBox API token (staging) — auto-loaded via Teller from Vault
+TF_VAR_dns_key_secret          # DNS TSIG key secret for dynamic DNS updates
+# Vault credentials (required for Teller auto-loading):
+VAULT_TOKEN                    # Vault token (or sourced from ~/.vault-token)
+VAULT_ROLE_ID                  # Vault AppRole role ID (for automated login)
+VAULT_SECRET_ID                # Vault AppRole secret ID (for automated login)
 ```
 
 **Note**: Environment variables are loaded automatically from:
 - `~/.env` (optional, user home directory)
 - `.env` (optional, project root)
 - `.creds.env.yaml` (encrypted with SOPS, project root)
+- Vault via Teller (`load-vault-secrets.sh`, sourced by mise on directory entry)
 
 ## Development Workflow
 
@@ -445,8 +473,8 @@ This removes:
 - **Pool First**: Always deploy the `proxmox-pool` stack before application stacks in each environment
 - **Version Pinning**: Managed via `catalog_version` in each environment's `environment.hcl`
   - Staging: `catalog_version = "main"` (tracks latest catalog changes)
-  - Production: `catalog_version = "v0.19.0"` (pinned for stability)
-- **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); `proxmox-pool`, `proxmox-k3s-shared-tags`, and `proxmox-mgm-shared-tags` use `unit {}` blocks (referencing catalog units)
+  - Production: `catalog_version = "v0.20.0"` (pinned for stability)
+- **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); `proxmox-pool` and `proxmox-mgm-shared-tags` use `unit {}` blocks (referencing catalog units)
 - **Environment Locals**: All stacks use `local.env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals` to reference shared settings (`catalog_version`, `pool_id`, `zone`, `environment_name`, `ansible_ssh_public_key_path`, `admin_ssh_public_key_path`, `netbox_cluster_name`, `netbox_tenant_name`, `netbox_site_name`)
 - **NetBox naming**: All NetBox identifiers use lowercase with hyphens (e.g., `proxmox-staging`, `platform-team`, `sflab-homelab-staging`)
 - **Generated Files**: `provider.tf` and `backend.tf` are auto-generated by Terragrunt
@@ -468,7 +496,7 @@ This removes:
 
 - **State backend issues**: Verify MinIO is accessible and credentials are set
 - **Proxmox authentication**: Ensure `PROXMOX_VE_API_TOKEN` and `PROXMOX_VE_ENDPOINT` are set
-- **NetBox authentication**: Ensure `NETBOX_API_TOKEN` is set
+- **NetBox authentication**: Ensure `NETBOX_API_TOKEN_PRODUCTION` and `NETBOX_API_TOKEN_STAGING` are set (loaded automatically via Teller if Vault is accessible)
 - **Cache corruption**: Run `mise run terragrunt:cleanup` to remove all cache directories
 - **Resource conflicts**: If multiple stacks try to create the same resource (e.g., pool), move it to `proxmox-pool` stack
 - **Unit dependencies**:
@@ -496,24 +524,7 @@ This removes:
    - Contains: `proxmox_pool` unit
    - Deploy first (required by other stacks)
 
-2. **proxmox-k3s-vms** (`staging/proxmox-k3s-vms/`)
-   - Purpose: K3s Kubernetes cluster VMs (1 control plane + 2 workers)
-   - Contains: `vm_cp1`, `vm_w1`, `vm_w2` stacks
-   - References: `pool-staging` from proxmox-pool stack
-   - DNS zone: `home.sflab.io.`
-   - Network: DHCP
-   - DNS records: normal only
-   - Memory: 4096MB, Cores: 2, Disk: 32GB
-   - SSH key: `keys/admin_id_ecdsa.pub`
-   - Tags: node-specific tags + shared `k3s-staging` tag (via `extra_tags`)
-
-3. **proxmox-k3s-shared-tags** (`staging/proxmox-k3s-shared-tags/`)
-   - Purpose: NetBox tags shared across all K3s nodes
-   - Contains: `k3s_shared_tags` unit
-   - Tags: `["k3s-staging"]`
-   - Note: Uses `units/netbox-tags` catalog unit
-
-4. **proxmox-mgm-cluster** (`staging/proxmox-mgm-cluster/`)
+2. **proxmox-mgm-cluster** (`staging/proxmox-mgm-cluster/`)
    - Purpose: Management K3s cluster VMs (1 control plane + 2 workers) + NetBox K8s cluster registration
    - Contains: `vm_cp1`, `vm_w1`, `vm_w2` stacks + `netbox_k8s_cluster` stack
    - References: `pool-staging` from proxmox-pool stack
@@ -525,13 +536,13 @@ This removes:
    - Tags: node-specific tags + shared `mgm-staging` tag (via `extra_tags`)
    - NetBox K8s cluster: `mgm-staging`
 
-5. **proxmox-mgm-shared-tags** (`staging/proxmox-mgm-shared-tags/`)
+3. **proxmox-mgm-shared-tags** (`staging/proxmox-mgm-shared-tags/`)
    - Purpose: NetBox tags shared across all mgm cluster nodes
    - Contains: `mgm_shared_tags` unit
    - Tags: `["mgm-staging"]`
    - Note: Uses `units/netbox-tags` catalog unit
 
-6. **proxmox-authentik-vm** (`staging/proxmox-authentik-vm/`)
+4. **proxmox-authentik-vm** (`staging/proxmox-authentik-vm/`)
    - Purpose: Authentik SSO/identity provider VM
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
@@ -541,7 +552,7 @@ This removes:
    - Memory: 2048MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-7. **proxmox-vault-vm** (`staging/proxmox-vault-vm/`)
+5. **proxmox-vault-vm** (`staging/proxmox-vault-vm/`)
    - Purpose: HashiCorp Vault VM for secrets management
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
@@ -552,7 +563,7 @@ This removes:
    - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
 
-8. **proxmox-github-runner-vm** (`staging/proxmox-github-runner-vm/`)
+6. **proxmox-github-runner-vm** (`staging/proxmox-github-runner-vm/`)
    - Purpose: GitHub Actions runner VM
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
@@ -562,7 +573,7 @@ This removes:
    - CPU type: `host` (required for Dagger support)
    - SSH key: `keys/admin_id_ecdsa.pub`
 
-9. **proxmox-gitlab-runner-vm** (`staging/proxmox-gitlab-runner-vm/`)
+7. **proxmox-gitlab-runner-vm** (`staging/proxmox-gitlab-runner-vm/`)
    - Purpose: GitLab CI runner VM
    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
    - References: `pool-staging` from proxmox-pool stack
@@ -573,32 +584,32 @@ This removes:
    - CPU type: `host` (required for Dagger support)
    - SSH key: `keys/admin_id_ecdsa.pub`
 
-10. **proxmox-dns-lxc** (`staging/proxmox-dns-lxc/`)
-    - Purpose: Technitium DNS servers (primary and secondary) for homelab DNS infrastructure
-    - Contains: `proxmox_lxc_1`, `proxmox_lxc_2` stacks (app names: `technitium-dns-1`, `technitium-dns-2`)
-    - References: `pool-staging` from proxmox-pool stack
-    - DNS zone: `home.sflab.io.` (dns_zone is passed but these ARE the DNS servers)
-    - Network: Static IP configuration
-      - DNS 1: 192.168.1.153/24 (technitium-dns-1-staging)
-      - DNS 2: 192.168.1.154/24 (technitium-dns-2-staging)
-      - Gateway: 192.168.1.1
-      - DNS servers: 192.168.1.13, 192.168.1.154
-    - SSH key: `keys/admin_id_ecdsa.pub`
-    - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
+8. **proxmox-dns-lxc** (`staging/proxmox-dns-lxc/`)
+   - Purpose: Technitium DNS servers (primary and secondary) for homelab DNS infrastructure
+   - Contains: `proxmox_lxc_1`, `proxmox_lxc_2` stacks (app names: `technitium-dns-1`, `technitium-dns-2`)
+   - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.` (dns_zone is passed but these ARE the DNS servers)
+   - Network: Static IP configuration
+     - DNS 1: 192.168.1.153/24 (technitium-dns-1-staging)
+     - DNS 2: 192.168.1.154/24 (technitium-dns-2-staging)
+     - Gateway: 192.168.1.1
+     - DNS servers: 192.168.1.13, 192.168.1.154
+   - SSH key: `keys/admin_id_ecdsa.pub`
+   - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
-11. **proxmox-netbox-vm** (`staging/proxmox-netbox-vm/`)
-    - Purpose: NetBox IPAM/DCIM VM for network documentation
-    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
-    - References: `pool-staging` from proxmox-pool stack
-    - DNS zone: `home.sflab.io.`
-    - Network: Static IP (192.168.1.88/24, gateway 192.168.1.1)
-    - DNS servers: 192.168.1.13, 192.168.1.154
-    - DNS records: normal + wildcard
-    - Memory: 4096MB, Disk: 16GB
-    - SSH key: `keys/ansible_id_ecdsa.pub`
-    - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
+9. **proxmox-netbox-vm** (`staging/proxmox-netbox-vm/`)
+   - Purpose: NetBox IPAM/DCIM VM for network documentation
+   - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+   - References: `pool-staging` from proxmox-pool stack
+   - DNS zone: `home.sflab.io.`
+   - Network: Static IP (192.168.1.88/24, gateway 192.168.1.1)
+   - DNS servers: 192.168.1.13, 192.168.1.154
+   - DNS records: normal + wildcard
+   - Memory: 4096MB, Disk: 16GB
+   - SSH key: `keys/ansible_id_ecdsa.pub`
+   - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
 
-12. **proxmox-example-vm** (`staging/proxmox-example-vm/`)
+10. **proxmox-example-vm** (`staging/proxmox-example-vm/`)
     - Purpose: Example/template VM stack for reference
     - Contains: `homelab_proxmox_vm` stack (VM + DNS)
     - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
@@ -607,7 +618,7 @@ This removes:
     - SSH key: `keys/ansible_id_ecdsa.pub`
     - NetBox role: `"Example VM"`
 
-13. **proxmox-example-lxc** (`staging/proxmox-example-lxc/`)
+11. **proxmox-example-lxc** (`staging/proxmox-example-lxc/`)
     - Purpose: Example/template LXC stack for reference
     - Contains: `homelab_proxmox_lxc` stack (LXC + DNS)
     - Network: Static IP (192.168.1.44/24, gateway 192.168.1.1)

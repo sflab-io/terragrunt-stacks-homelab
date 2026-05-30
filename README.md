@@ -12,6 +12,7 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 - **[MinIO](https://min.io/)** - S3-compatible backend for state storage
 - **[Dagger](https://dagger.io/)** - CI/CD pipeline for running stack operations
 - **[mise](https://mise.jdx.dev/)** - Development tool version management
+- **[HashiCorp Vault](https://www.vaultproject.io/)** + **[Teller](https://tlr.dev/)** - Secrets management and automatic env var injection
 
 ## Repository Structure
 
@@ -22,18 +23,21 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 ├── provider-dns-config.hcl     # DNS provider settings
 ├── dagger.json                 # Dagger module configuration
 ├── .dagger/                    # Dagger TypeScript module source
+├── .teller.yml                 # Teller config: maps Vault secrets to env vars
+├── .pre-commit-config.yaml     # Pre-commit hooks (gitleaks, tofu-fmt, catalog version check)
 ├── mise.toml                   # Tool version management
 ├── keys/                       # SSH public keys
 │   ├── ansible_id_ecdsa.pub
 │   └── admin_id_ecdsa.pub
+├── scripts/                    # Helper scripts (added to PATH via mise)
+│   ├── load-vault-secrets.sh   # Auto-sourced on directory entry — loads secrets from Vault via Teller
+│   └── check-staging-catalog-version.sh
 ├── staging/                    # Staging environment
 │   ├── environment.hcl
 │   ├── backend-config.hcl
 │   ├── provider-netbox-config.hcl
 │   ├── proxmox-pool/
 │   ├── proxmox-authentik-vm/
-│   ├── proxmox-k3s-vms/
-│   ├── proxmox-k3s-shared-tags/
 │   ├── proxmox-mgm-cluster/
 │   ├── proxmox-mgm-shared-tags/
 │   ├── proxmox-vault-vm/
@@ -126,20 +130,27 @@ MINIO_PASSWORD=<minio-admin-password>
 PROXMOX_VE_ENDPOINT=https://proxmox.home.sflab.io:8006
 PROXMOX_VE_API_TOKEN=<proxmox-api-token>
 
-# NetBox API token (for IPAM/DCIM registration)
-NETBOX_API_TOKEN=<netbox-api-token>
+# NetBox API tokens — auto-loaded from Vault via Teller on directory entry
+NETBOX_API_TOKEN_PRODUCTION=<netbox-api-token>   # loaded from Vault: secrets_homelab/netbox_production
+NETBOX_API_TOKEN_STAGING=<netbox-api-token>      # loaded from Vault: secrets_homelab/netbox_staging
 
 # LXC containers (dns-lxc, example-lxc stacks)
 PROXMOX_CONTAINER_PASSWORD=<container-password>
 
 # DNS dynamic updates
 TF_VAR_dns_key_secret=<dns-tsig-key-secret>
+
+# Vault credentials (required for automatic NetBox token injection via Teller)
+VAULT_TOKEN=<vault-token>         # or stored in ~/.vault-token
+VAULT_ROLE_ID=<role-id>           # for AppRole login (alternative to token)
+VAULT_SECRET_ID=<secret-id>       # for AppRole login (alternative to token)
 ```
 
 Environment variables are loaded from:
 - `~/.env` (optional)
 - `.env` (optional, project root)
 - `.creds.env.yaml` (encrypted with SOPS, project root)
+- **Vault via Teller** (`load-vault-secrets.sh`) — automatically sourced by mise on directory entry
 
 ### Tool Versions
 
@@ -149,6 +160,7 @@ Managed automatically via `mise.toml`:
 - **Terragrunt**: 1.0.6
 - **Dagger**: latest
 - **MinIO Client**: latest
+- **Vault**: 1.21.1
 
 ## Common Commands
 
@@ -210,8 +222,6 @@ terragrunt catalog                  # Browse available modules
 |-------|---------|------|---------|
 | **proxmox-pool** | Resource pool | Unit | - |
 | **proxmox-authentik-vm** | Authentik SSO | VM + DNS | DHCP |
-| **proxmox-k3s-vms** | K3s cluster (1 CP + 2 Workers) | 3× VM + DNS | DHCP |
-| **proxmox-k3s-shared-tags** | K3s shared NetBox tags | Unit | - |
 | **proxmox-mgm-cluster** | Management K3s cluster (1 CP + 2 Workers) + NetBox K8s | 3× VM + DNS + K8s | DHCP |
 | **proxmox-mgm-shared-tags** | Mgm cluster shared NetBox tags | Unit | - |
 | **proxmox-vault-vm** | HashiCorp Vault | VM + DNS | Static (192.168.1.33) |
@@ -252,7 +262,7 @@ terragrunt catalog                  # Browse available modules
      values = { ... }
    }
    ```
-   > **Note**: Use `stack {}` blocks for catalog stacks (VM, LXC, K8s cluster). Use `unit {}` blocks for `proxmox-pool` and `*-shared-tags` stacks.
+   > **Note**: Use `stack {}` blocks for catalog stacks (VM, LXC, K8s cluster). Use `unit {}` blocks for `proxmox-pool` and `proxmox-mgm-shared-tags`.
 4. Plan and apply:
    ```bash
    terragrunt stack run plan
@@ -273,14 +283,20 @@ mise run terragrunt:cleanup
 ```
 
 **State backend issues:**
-- Verify MinIO accessibility: `http://minio.home.sflab.io:9000`
+- Verify MinIO accessibility: `http://192.168.1.20:9000`
 - Check credentials: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 
 **Proxmox authentication:**
 - Ensure `PROXMOX_VE_API_TOKEN` and `PROXMOX_VE_ENDPOINT` are set
 
 **NetBox authentication:**
-- Ensure `NETBOX_API_TOKEN` is set
+- `NETBOX_API_TOKEN_PRODUCTION` and `NETBOX_API_TOKEN_STAGING` must be set
+- These are loaded automatically from Vault via Teller if `VAULT_TOKEN` (or `~/.vault-token`) is available
+
+**Vault / Teller not loading secrets:**
+- Check `VAULT_ADDR` is reachable: `https://vault.home.sflab.io:8200`
+- Ensure a valid `VAULT_TOKEN` is set or `~/.vault-token` exists
+- For AppRole login, set `VAULT_ROLE_ID` and `VAULT_SECRET_ID`
 
 **Dagger cache issues:**
 - If apply shows success but VM is missing, check state and use `-old` variant:
@@ -299,6 +315,16 @@ mise run terragrunt:cleanup
 - **Stack**: Collection of related infrastructure units
 - **Unit**: Single infrastructure component (VM, LXC, DNS record, K8s cluster)
 - **Catalog**: External repository with reusable modules
+
+### Vault & Teller Integration
+
+Secrets are managed via **HashiCorp Vault** and loaded automatically using **Teller** (`.teller.yml`) when entering the directory:
+
+1. `mise.toml` sources `scripts/load-vault-secrets.sh` on directory entry
+2. The script resolves a Vault token (`$VAULT_TOKEN` → `~/.vault-token` → AppRole login)
+3. Teller reads secrets from Vault and exports them as environment variables:
+   - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN_PRODUCTION`
+   - `secrets_homelab/netbox_staging.api_token` → `NETBOX_API_TOKEN_STAGING`
 
 ### Dagger Integration
 
