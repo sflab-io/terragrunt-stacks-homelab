@@ -4,6 +4,7 @@ go = "1.26.3"
 opentofu = "1.12.1"
 terragrunt = "1.0.6"
 mc = "latest"
+vault = "1.21.1"
 
 [env]
 PROJECT_NAME = "{{ config_root | basename }}"
@@ -15,6 +16,7 @@ _.file = [
   # { path = ".creds.env.yaml", redact = true }
 ]
 _.path = ["./scripts"]
+_.source = "./scripts/load-vault-secrets.sh"
 
 [hooks]
 enter = [
