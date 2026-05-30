@@ -1,0 +1,15 @@
+providers:
+  vault:
+    kind: hashicorp
+    options:
+      address: https://vault.home.sflab.io:8200
+    maps:
+      - id: netbox_production
+        path: secrets_homelab/netbox_production
+        keys:
+          api_token: NETBOX_API_TOKEN_PRODUCTION
+
+      - id: netbox_staging
+        path: secrets_homelab/netbox_staging
+        keys:
+          api_token: NETBOX_API_TOKEN_STAGING

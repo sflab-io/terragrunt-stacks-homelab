@@ -33,6 +33,12 @@ else
   SELECTED_STACK+=("${usage_target}")
 fi
 
+# Use environment-specific token from Vault if available (via eval $(mise run vault:export))
+if [[ "$ENVIRONMENT" == "production" ]] && [[ -n "${NETBOX_API_TOKEN_PRODUCTION:-}" ]]; then
+  NETBOX_API_TOKEN="${NETBOX_API_TOKEN_PRODUCTION}"
+elif [[ "$ENVIRONMENT" == "staging" ]] && [[ -n "${NETBOX_API_TOKEN_STAGING:-}" ]]; then
+  NETBOX_API_TOKEN="${NETBOX_API_TOKEN_STAGING}"
+fi
 export TF_VAR_netbox_token="${NETBOX_API_TOKEN}"
 
 CMD="dagger call --progress=plain apply \
