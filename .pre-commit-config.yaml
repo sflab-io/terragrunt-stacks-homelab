@@ -22,6 +22,6 @@ repos:
       - id: check-staging-catalog-version
         name: staging catalog_version muss auf main-Branch "main" sein
         language: script
-        entry: scripts/check-staging-catalog-version.sh
+        entry: .hooks/check-staging-catalog-version.sh
         always_run: true
         pass_filenames: false

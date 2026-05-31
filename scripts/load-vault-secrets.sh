@@ -4,12 +4,6 @@
 
 export VAULT_ADDR="${VAULT_ADDR:-https://vault.home.sflab.io:8200}"
 
-unset NETBOX_API_TOKEN_PRODUCTION
-unset NETBOX_API_TOKEN_STAGING
-
-# Already loaded in this shell session — skip
-[[ -n "${NETBOX_API_TOKEN_PRODUCTION:-}" ]] && return 0
-
 # Resolve token: env var → cached file → fresh AppRole login
 if [[ -z "${VAULT_TOKEN:-}" ]]; then
   if [[ -f "${HOME}/.vault-token" ]]; then

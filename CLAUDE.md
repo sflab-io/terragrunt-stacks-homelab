@@ -293,7 +293,8 @@ PROXMOX_VE_API_TOKEN           # Proxmox API token for authentication
 PROXMOX_CONTAINER_PASSWORD     # Password for LXC containers (for container stacks)
 NETBOX_API_TOKEN_PRODUCTION    # NetBox API token (production) — auto-loaded via Teller from Vault
 NETBOX_API_TOKEN_STAGING       # NetBox API token (staging) — auto-loaded via Teller from Vault
-TF_VAR_dns_key_secret          # DNS TSIG key secret for dynamic DNS updates
+TECHNITIUM_TSIG_KEY_SECRET     # DNS TSIG key secret for dynamic DNS updates (auto-loaded via Teller from Vault)
+TECHNITIUM_TSIG_KEY_NAME       # DNS TSIG key name (auto-loaded via Teller from Vault)
 # Vault credentials (required for Teller auto-loading):
 VAULT_TOKEN                    # Vault token (or sourced from ~/.vault-token)
 VAULT_ROLE_ID                  # Vault AppRole role ID (for automated login)
