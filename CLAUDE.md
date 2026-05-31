@@ -13,7 +13,7 @@ This is a **Terragrunt infrastructure-live repository** for managing homelab inf
 - Environment-based organization (staging, production)
 
 The repository follows Terragrunt's "infrastructure-live" pattern where configurations reference reusable modules from a separate "infrastructure-catalog" repository.
-The local catalog repository is located at: `../terragrunt-infrastructure-catalog-homelab/`
+The local catalog repository is located at: `../terragrunt-catalog-homelab/`
 
 ### Required Tools (Managed by mise)
 
@@ -43,7 +43,8 @@ Run `mise install` to install all required tools, or simply enter the directory 
 │   ├── ansible_id_ecdsa.pub    # Ansible SSH public key
 │   └── admin_id_ecdsa.pub      # Admin SSH public key
 ├── scripts/                    # Helper scripts (added to PATH via mise)
-│   ├── load-vault-secrets.sh   # Sourced by mise on directory entry — loads Vault secrets via Teller
+│   └── load-vault-secrets.sh   # Sourced by mise on directory entry — loads Vault secrets via Teller
+├── .hooks/                     # Git hooks scripts
 │   └── check-staging-catalog-version.sh # Pre-commit hook: enforces catalog_version = "main" in staging
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
@@ -82,17 +83,17 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
    - Key name: `ddnskey.`
    - Key algorithm: hmac-sha256
    - Used for automatic DNS record creation for VMs
-   - Note: Key secret is stored in environment variable `TF_VAR_dns_key_secret`
+   - Note: Key name and secret are auto-loaded from Vault via Teller as `TECHNITIUM_TSIG_KEY_NAME` and `TECHNITIUM_TSIG_KEY_SECRET`
 
 4. **provider-netbox-config.hcl**: NetBox provider configuration (per environment)
-   - Staging: `http://netbox.home.sflab.io` (`skip_version_check = true`) — uses the same NetBox instance as production (staging-specific URL is commented out as optional override)
-   - Production: `http://netbox.home.sflab.io` (`skip_version_check = true`)
+   - Both staging and production use: `http://netbox.home.sflab.io` (`skip_version_check = true`)
+   - Both environments use `NETBOX_API_TOKEN_PRODUCTION` (shared NetBox instance; a staging-specific URL/token can be configured by uncommenting the optional lines in `staging/provider-netbox-config.hcl`)
    - Used for registering VMs/LXC containers in NetBox IPAM/DCIM
 
 5. **environment.hcl**: Environment-specific variables shared by all stacks
    - `environment_name`: e.g., `"staging"` or `"production"`
    - `pool_id`: e.g., `"pool-staging"` or `"pool-production"`
-   - `catalog_version`: e.g., `"main"` (staging) or `"v0.19.0"` (production)
+   - `catalog_version`: e.g., `"main"` (staging) or `"v0.21.0"` (production)
    - `zone`: DNS zone, e.g., `"home.sflab.io"`
    - `ansible_ssh_public_key_path`: Path to ansible SSH public key
    - `admin_ssh_public_key_path`: Path to admin SSH public key
@@ -145,7 +146,7 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 - Referenced via git source URLs in stack definitions
 - Version pinning via `?ref=branch-or-tag`
   - Staging: `?ref=main` (tracks latest catalog changes via `catalog_version = "main"` in environment.hcl)
-  - Production: `?ref=v0.20.0` (pinned for stability via `catalog_version = "v0.20.0"` in environment.hcl)
+  - Production: `?ref=v0.21.0` (pinned for stability via `catalog_version = "v0.21.0"` in environment.hcl)
 
 **Available Catalog Items** (as used in current stacks):
 - `stacks/homelab-proxmox-vm`: Combined VM + DNS stack (use `stack {}` block)
@@ -162,8 +163,11 @@ The repository uses **Teller** (`.teller.yml`) to map HashiCorp Vault secrets to
 - **Secrets loaded**:
   - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN_PRODUCTION`
   - `secrets_homelab/netbox_staging.api_token` → `NETBOX_API_TOKEN_STAGING`
+  - `secrets_homelab/technitium.tsig_key_name` → `TECHNITIUM_TSIG_KEY_NAME`
+  - `secrets_homelab/technitium.tsig_key_secret` → `TECHNITIUM_TSIG_KEY_SECRET`
 - **Token resolution order**: `$VAULT_TOKEN` env var → `~/.vault-token` file → AppRole login via `mise run vault:login` (requires `VAULT_ROLE_ID` + `VAULT_SECRET_ID`)
 - If no Vault credentials are available, the script exits silently (secrets stay unset)
+- Note: Teller always runs on directory entry (no early-return skip even if some secrets are already set)
 
 **Pre-commit hooks** (`.pre-commit-config.yaml`) enforce:
 - `gitleaks`: Secret scanning before every commit
@@ -474,7 +478,7 @@ This removes:
 - **Pool First**: Always deploy the `proxmox-pool` stack before application stacks in each environment
 - **Version Pinning**: Managed via `catalog_version` in each environment's `environment.hcl`
   - Staging: `catalog_version = "main"` (tracks latest catalog changes)
-  - Production: `catalog_version = "v0.20.0"` (pinned for stability)
+  - Production: `catalog_version = "v0.21.0"` (pinned for stability)
 - **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); `proxmox-pool` and `proxmox-mgm-shared-tags` use `unit {}` blocks (referencing catalog units)
 - **Environment Locals**: All stacks use `local.env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals` to reference shared settings (`catalog_version`, `pool_id`, `zone`, `environment_name`, `ansible_ssh_public_key_path`, `admin_ssh_public_key_path`, `netbox_cluster_name`, `netbox_tenant_name`, `netbox_site_name`)
 - **NetBox naming**: All NetBox identifiers use lowercase with hyphens (e.g., `proxmox-staging`, `platform-team`, `sflab-homelab-staging`)
@@ -532,7 +536,7 @@ This removes:
    - DNS zone: `home.sflab.io.`
    - Network: DHCP
    - DNS records: normal only
-   - Memory: 4096MB, Cores: 2, Disk: 32GB
+   - Memory: 8192MB, Cores: 2, Disk: 32GB
    - SSH key: `keys/admin_id_ecdsa.pub`
    - Tags: node-specific tags + shared `mgm-staging` tag (via `extra_tags`)
    - NetBox K8s cluster: `mgm-staging`
@@ -615,7 +619,7 @@ This removes:
     - Contains: `homelab_proxmox_vm` stack (VM + DNS)
     - Network: Static IP (192.168.1.45/24, gateway 192.168.1.1)
     - DNS records: normal only (no wildcard)
-    - Memory: 4096MB, Disk: 8GB
+    - Memory: 2048MB, Disk: 8GB
     - SSH key: `keys/ansible_id_ecdsa.pub`
     - NetBox role: `"Example VM"`
 

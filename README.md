@@ -30,8 +30,9 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 │   ├── ansible_id_ecdsa.pub
 │   └── admin_id_ecdsa.pub
 ├── scripts/                    # Helper scripts (added to PATH via mise)
-│   ├── load-vault-secrets.sh   # Auto-sourced on directory entry — loads secrets from Vault via Teller
-│   └── check-staging-catalog-version.sh
+│   └── load-vault-secrets.sh   # Auto-sourced on directory entry — loads secrets from Vault via Teller
+├── .hooks/                     # Git hook scripts
+│   └── check-staging-catalog-version.sh  # Pre-commit: enforces catalog_version="main" in staging
 ├── staging/                    # Staging environment
 │   ├── environment.hcl
 │   ├── backend-config.hcl
@@ -134,11 +135,12 @@ PROXMOX_VE_API_TOKEN=<proxmox-api-token>
 NETBOX_API_TOKEN_PRODUCTION=<netbox-api-token>   # loaded from Vault: secrets_homelab/netbox_production
 NETBOX_API_TOKEN_STAGING=<netbox-api-token>      # loaded from Vault: secrets_homelab/netbox_staging
 
+# DNS TSIG key — auto-loaded from Vault via Teller on directory entry
+TECHNITIUM_TSIG_KEY_NAME=<tsig-key-name>         # loaded from Vault: secrets_homelab/technitium
+TECHNITIUM_TSIG_KEY_SECRET=<tsig-key-secret>     # loaded from Vault: secrets_homelab/technitium
+
 # LXC containers (dns-lxc, example-lxc stacks)
 PROXMOX_CONTAINER_PASSWORD=<container-password>
-
-# DNS dynamic updates
-TF_VAR_dns_key_secret=<dns-tsig-key-secret>
 
 # Vault credentials (required for automatic NetBox token injection via Teller)
 VAULT_TOKEN=<vault-token>         # or stored in ~/.vault-token
@@ -289,8 +291,8 @@ mise run terragrunt:cleanup
 **Proxmox authentication:**
 - Ensure `PROXMOX_VE_API_TOKEN` and `PROXMOX_VE_ENDPOINT` are set
 
-**NetBox authentication:**
-- `NETBOX_API_TOKEN_PRODUCTION` and `NETBOX_API_TOKEN_STAGING` must be set
+**NetBox / DNS authentication:**
+- `NETBOX_API_TOKEN_PRODUCTION`, `NETBOX_API_TOKEN_STAGING`, `TECHNITIUM_TSIG_KEY_NAME`, `TECHNITIUM_TSIG_KEY_SECRET` must be set
 - These are loaded automatically from Vault via Teller if `VAULT_TOKEN` (or `~/.vault-token`) is available
 
 **Vault / Teller not loading secrets:**
@@ -325,6 +327,8 @@ Secrets are managed via **HashiCorp Vault** and loaded automatically using **Tel
 3. Teller reads secrets from Vault and exports them as environment variables:
    - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN_PRODUCTION`
    - `secrets_homelab/netbox_staging.api_token` → `NETBOX_API_TOKEN_STAGING`
+   - `secrets_homelab/technitium.tsig_key_name` → `TECHNITIUM_TSIG_KEY_NAME`
+   - `secrets_homelab/technitium.tsig_key_secret` → `TECHNITIUM_TSIG_KEY_SECRET`
 
 ### Dagger Integration
 

@@ -45,7 +45,8 @@ CMD="dagger call --progress=plain output \
   --env-vars PROXMOX_VE_API_TOKEN=$PROXMOX_VE_API_TOKEN \
   --env-vars NETBOX_API_TOKEN=$NETBOX_API_TOKEN \
   --env-vars TF_VAR_netbox_token=$TF_VAR_netbox_token \
-  --env-vars TF_VAR_dns_key_secret=$TF_VAR_dns_key_secret \
+  --env-vars TECHNITIUM_TSIG_KEY_SECRET=$TECHNITIUM_TSIG_KEY_SECRET \
+  --env-vars TECHNITIUM_TSIG_KEY_NAME=$TECHNITIUM_TSIG_KEY_NAME \
   --env-vars PROXMOX_CONTAINER_PASSWORD=$PROXMOX_CONTAINER_PASSWORD"
 
 echo ""
