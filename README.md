@@ -46,6 +46,8 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 │   ├── proxmox-gitlab-runner-vm/
 │   ├── proxmox-dns-lxc/
 │   ├── proxmox-netbox-vm/
+│   ├── proxmox-platform-cluster/
+│   ├── proxmox-platform-shared-tags/
 │   ├── proxmox-example-vm/
 │   └── proxmox-example-lxc/
 └── production/                 # Production environment
@@ -61,6 +63,8 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
     ├── proxmox-gitlab-runner-vm/
     ├── proxmox-dns-lxc/
     ├── proxmox-netbox-vm/
+    ├── proxmox-platform-cluster/
+    ├── proxmox-platform-shared-tags/
     ├── proxmox-example-vm/
     └── proxmox-example-lxc/
 ```
@@ -180,11 +184,15 @@ mise run minio:list               # List bucket contents
 mise run terragrunt:stack:plan    # Plan stack changes
 mise run terragrunt:stack:apply   # Apply stack changes
 mise run terragrunt:stack:destroy # Destroy stack resources
+mise run terragrunt:stack:generate # Generate stack files
 mise run terragrunt:stack:output  # View stack outputs
 
 # Direct terragrunt (bypasses Dagger, uses --provider-cache)
 mise run terragrunt:stack:apply-old
 mise run terragrunt:stack:plan-old
+mise run terragrunt:stack:generate-old
+mise run terragrunt:stack:destroy-old
+mise run terragrunt:stack:output-old
 
 # Utilities
 mise run terragrunt:cleanup       # Clean cache directories
@@ -231,6 +239,8 @@ terragrunt catalog                  # Browse available modules
 | **proxmox-gitlab-runner-vm** | GitLab CI runner | VM + DNS | DHCP |
 | **proxmox-dns-lxc** | Technitium DNS (primary + secondary) | 2× LXC + DNS | Static (192.168.1.153-154) |
 | **proxmox-netbox-vm** | NetBox IPAM/DCIM | VM + DNS | Static (192.168.1.88) |
+| **proxmox-platform-cluster** | Platform K3s cluster (3× combined CP/Worker) + NetBox K8s | 3× VM + DNS + K8s | DHCP |
+| **proxmox-platform-shared-tags** | Platform cluster shared NetBox tags | Unit | - |
 | **proxmox-example-vm** | Example VM template | VM + DNS | Static (192.168.1.45) |
 | **proxmox-example-lxc** | Example LXC template | LXC + DNS | Static (192.168.1.44) |
 
@@ -247,6 +257,8 @@ terragrunt catalog                  # Browse available modules
 | **proxmox-gitlab-runner-vm** | GitLab CI runner | VM + DNS | DHCP |
 | **proxmox-dns-lxc** | Technitium DNS secondary | LXC + DNS | Static (192.168.1.154) |
 | **proxmox-netbox-vm** | NetBox IPAM/DCIM | VM + DNS | Static (192.168.1.89) |
+| **proxmox-platform-cluster** | Platform K3s cluster (3× combined CP/Worker) + NetBox K8s | 3× VM + DNS + K8s | DHCP |
+| **proxmox-platform-shared-tags** | Platform cluster shared NetBox tags | Unit | - |
 | **proxmox-example-vm** | Example VM template | VM + DNS | Static (192.168.1.45) |
 | **proxmox-example-lxc** | Example LXC template | LXC + DNS | Static (192.168.1.44) |
 
@@ -264,7 +276,7 @@ terragrunt catalog                  # Browse available modules
      values = { ... }
    }
    ```
-   > **Note**: Use `stack {}` blocks for catalog stacks (VM, LXC, K8s cluster). Use `unit {}` blocks for `proxmox-pool` and `proxmox-mgm-shared-tags`.
+   > **Note**: Use `stack {}` blocks for catalog stacks (VM, LXC, K8s cluster). Use `unit {}` blocks for `proxmox-pool` and shared-tags stacks (e.g., `proxmox-mgm-shared-tags`, `proxmox-platform-shared-tags`).
 4. Plan and apply:
    ```bash
    terragrunt stack run plan

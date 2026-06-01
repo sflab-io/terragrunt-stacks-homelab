@@ -633,6 +633,24 @@ This removes:
     - NetBox role: `"Example LXC"`
     - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
+12. **proxmox-platform-cluster** (`staging/proxmox-platform-cluster/`)
+    - Purpose: Platform K3s cluster VMs (3 combined CP/worker nodes) + NetBox K8s cluster registration
+    - Contains: `vm_cp1_w1`, `vm_cp2_w2`, `vm_cp_3_w3` stacks + `netbox_k8s_cluster` stack
+    - References: `pool-staging` from proxmox-pool stack
+    - DNS zone: `home.sflab.io.`
+    - Network: DHCP
+    - DNS records: normal only
+    - Memory: 4096MB, Cores: 2, Disk: 32GB
+    - SSH key: `keys/admin_id_ecdsa.pub`
+    - Tags: node-specific tags + shared `platform-staging` tag (via `extra_tags`)
+    - NetBox K8s cluster: `platform-staging`
+
+13. **proxmox-platform-shared-tags** (`staging/proxmox-platform-shared-tags/`)
+    - Purpose: NetBox tags shared across all platform cluster nodes
+    - Contains: `platform_shared_tags` unit
+    - Tags: `["platform-staging"]`
+    - Note: Uses `units/netbox-tags` catalog unit
+
 ### Current Production Stacks
 
 1. **proxmox-pool** (`production/proxmox-pool/`)
@@ -742,3 +760,21 @@ This removes:
     - SSH key: `keys/ansible_id_ecdsa.pub`
     - NetBox role: `"Example LXC"`
     - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
+
+12. **proxmox-platform-cluster** (`production/proxmox-platform-cluster/`)
+    - Purpose: Platform K3s cluster VMs (3 combined CP/worker nodes) + NetBox K8s cluster registration
+    - Contains: `vm_cp1_w1`, `vm_cp2_w2`, `vm_cp_3_w3` stacks + `netbox_k8s_cluster` stack
+    - References: `pool-production` from proxmox-pool stack
+    - DNS zone: `home.sflab.io.`
+    - Network: DHCP
+    - DNS records: normal only
+    - Memory: 4096MB, Cores: 2, Disk: 32GB
+    - SSH key: `keys/admin_id_ecdsa.pub`
+    - Tags: node-specific tags + shared `platform-production` tag (via `extra_tags`)
+    - NetBox K8s cluster: `platform-production`
+
+13. **proxmox-platform-shared-tags** (`production/proxmox-platform-shared-tags/`)
+    - Purpose: NetBox tags shared across all platform cluster nodes
+    - Contains: `platform_shared_tags` unit
+    - Tags: `["platform-production"]`
+    - Note: Uses `units/netbox-tags` catalog unit
