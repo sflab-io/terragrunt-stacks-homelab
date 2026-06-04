@@ -33,13 +33,6 @@ else
   SELECTED_STACK+=("${usage_target}")
 fi
 
-# Use environment-specific token from Vault if available (via eval $(mise run vault:export))
-if [[ "$ENVIRONMENT" == "production" ]] && [[ -n "${NETBOX_API_TOKEN_PRODUCTION:-}" ]]; then
-  NETBOX_API_TOKEN="${NETBOX_API_TOKEN_PRODUCTION}"
-elif [[ "$ENVIRONMENT" == "staging" ]] && [[ -n "${NETBOX_API_TOKEN_STAGING:-}" ]]; then
-  NETBOX_API_TOKEN="${NETBOX_API_TOKEN_STAGING}"
-fi
-export TF_VAR_netbox_token="${NETBOX_API_TOKEN}"
 
 CMD="dagger call --progress=plain apply \
   --source $MISE_CONFIG_ROOT \
@@ -51,7 +44,6 @@ CMD="dagger call --progress=plain apply \
   --env-vars AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
   --env-vars PROXMOX_VE_API_TOKEN=$PROXMOX_VE_API_TOKEN \
   --env-vars NETBOX_API_TOKEN=$NETBOX_API_TOKEN \
-  --env-vars TF_VAR_netbox_token=$TF_VAR_netbox_token \
   --env-vars TECHNITIUM_TSIG_KEY_SECRET=$TECHNITIUM_TSIG_KEY_SECRET \
   --env-vars TECHNITIUM_TSIG_KEY_NAME=$TECHNITIUM_TSIG_KEY_NAME \
   --env-vars PROXMOX_CONTAINER_PASSWORD=$PROXMOX_CONTAINER_PASSWORD"

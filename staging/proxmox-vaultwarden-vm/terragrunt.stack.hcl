@@ -1,10 +1,9 @@
 locals {
   env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app       = "gitlab-runner"
-  memory    = 8192
-  disk_size = 16000
-  cpu_type  = "host" # running dagger on gitlab runner requires VM CPU-Typ 'host' instead of 'qemu64' (default)
+  app       = "vaultwarden"
+  memory    = 2048
+  disk_size = 8000
 
   network_config = {
     type = "dhcp"
@@ -12,7 +11,7 @@ locals {
 
   record_types = {
     normal   = true
-    wildcard = false
+    wildcard = true
   }
 
   #
@@ -24,7 +23,7 @@ locals {
 stack "homelab_proxmox_vm" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
-  path = "homelab-proxmox-vm"
+  path   = "homelab-proxmox-vm"
 
   values = {
     version = local.env.catalog_version
@@ -34,7 +33,6 @@ stack "homelab_proxmox_vm" {
 
     memory    = local.memory
     disk_size = local.disk_size
-    cpu_type  = local.cpu_type
 
     network_config = local.network_config
 
@@ -43,7 +41,7 @@ stack "homelab_proxmox_vm" {
     dns_zone = local.env.zone
 
     pool_id             = local.env.pool_id
-    ssh_public_key_path = local.env.admin_ssh_public_key_path
+    ssh_public_key_path = local.env.ansible_ssh_public_key_path
 
     #
     cluster_name = local.cluster_name

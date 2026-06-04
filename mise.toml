@@ -5,9 +5,16 @@ opentofu = "1.12.1"
 terragrunt = "1.0.6"
 mc = "latest"
 vault = "1.21.1"
+fnox = "latest"
+pre-commit = "latest"
+
+[plugins]
+fnox-env = "https://github.com/jdx/mise-env-fnox"
 
 [env]
 PROJECT_NAME = "{{ config_root | basename }}"
+VAULT_ADDR = "https://vault.home.sflab.io:8200"
+VAULT_SKIP_VERIFY = "true"
 
 _.file = [
   { path = "{{env.HOME}}/.env", optional = true },
@@ -16,7 +23,11 @@ _.file = [
   # { path = ".creds.env.yaml", redact = true }
 ]
 _.path = ["./scripts"]
-_.source = "./scripts/load-vault-secrets.sh"
+
+# required for fnox to work properly
+# must be run before _.fnox-env since it relies on the token being valid to load secrets
+_.source = [".mise/scripts/set-vault-token.sh"]
+_.fnox-env = { tools = true }
 
 [hooks]
 enter = [
@@ -24,5 +35,7 @@ enter = [
   #
   'mise i -q',
   #
-  'pre-commit install -f --hook-type pre-commit'
+  'pre-commit install -f --hook-type pre-commit',
+  #
+  '.mise/scripts/create-vault-token.sh',
 ]

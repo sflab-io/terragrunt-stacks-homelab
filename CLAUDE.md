@@ -24,6 +24,8 @@ The following tools are automatically installed and managed via `mise.toml`:
 - **Dagger**: latest (via `aqua:dagger`)
 - **mc (MinIO Client)**: latest
 - **Vault**: 1.21.1
+- **fnox**: latest (secrets management, via mise plugin `fnox-env`)
+- **pre-commit**: latest
 
 Run `mise install` to install all required tools, or simply enter the directory (mise will auto-install via hooks).
 
@@ -37,15 +39,21 @@ Run `mise install` to install all required tools, or simply enter the directory 
 ├── provider-dns-config.hcl     # DNS provider configuration
 ├── dagger.json                 # Dagger module configuration
 ├── .dagger/                    # Dagger TypeScript module source
-├── .teller.yml                 # Teller config for Vault secrets mapping
+├── fnox.toml                   # fnox config for Vault secrets mapping (replaces .teller.yml)
 ├── .pre-commit-config.yaml     # Pre-commit hooks (gitleaks, tofu-fmt, catalog version check)
 ├── keys/                       # SSH public keys for VM access
 │   ├── ansible_id_ecdsa.pub    # Ansible SSH public key
 │   └── admin_id_ecdsa.pub      # Admin SSH public key
 ├── scripts/                    # Helper scripts (added to PATH via mise)
-│   └── load-vault-secrets.sh   # Sourced by mise on directory entry — loads Vault secrets via Teller
+│   └── load-vault-secrets.sh   # Legacy script (kept for reference; replaced by .mise/scripts/)
 ├── .hooks/                     # Git hooks scripts
 │   └── check-staging-catalog-version.sh # Pre-commit hook: enforces catalog_version = "main" in staging
+├── .mise/                      # mise configuration and automation
+│   ├── common.sh               # Shared shell functions for mise tasks (logging, colors)
+│   ├── scripts/                # Scripts sourced/run by mise
+│   │   ├── set-vault-token.sh  # Sourced on directory entry — sets VAULT_TOKEN
+│   │   └── create-vault-token.sh # Run on enter hook — creates Vault AppRole token → ~/.vault-token
+│   └── tasks/                  # Automation tasks via mise
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
 │   ├── backend-config.hcl      # Environment-specific backend configuration
@@ -54,7 +62,6 @@ Run `mise install` to install all required tools, or simply enter the directory 
 │   │   └── terragrunt.stack.hcl
 │   └── {stack-name}/           # Individual stack deployments (e.g., proxmox-vault-vm)
 │       └── terragrunt.stack.hcl # Stack definition with units
-└── .mise/tasks/                # Automation tasks via mise
 ```
 
 ### Terragrunt Stacks
@@ -83,17 +90,17 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
    - Key name: `ddnskey.`
    - Key algorithm: hmac-sha256
    - Used for automatic DNS record creation for VMs
-   - Note: Key name and secret are auto-loaded from Vault via Teller as `TECHNITIUM_TSIG_KEY_NAME` and `TECHNITIUM_TSIG_KEY_SECRET`
+   - Note: TSIG key name and secret are auto-loaded from Vault via fnox as `TSIG_KEY_NAME` and `TSIG_KEY_SECRET`
 
 4. **provider-netbox-config.hcl**: NetBox provider configuration (per environment)
    - Both staging and production use: `http://netbox.home.sflab.io` (`skip_version_check = true`)
-   - Both environments use `NETBOX_API_TOKEN_PRODUCTION` (shared NetBox instance; a staging-specific URL/token can be configured by uncommenting the optional lines in `staging/provider-netbox-config.hcl`)
+   - Both environments use `NETBOX_API_TOKEN` (shared NetBox instance)
    - Used for registering VMs/LXC containers in NetBox IPAM/DCIM
 
 5. **environment.hcl**: Environment-specific variables shared by all stacks
    - `environment_name`: e.g., `"staging"` or `"production"`
    - `pool_id`: e.g., `"pool-staging"` or `"pool-production"`
-   - `catalog_version`: e.g., `"main"` (staging) or `"v0.21.0"` (production)
+   - `catalog_version`: e.g., `"main"` (staging) or `"v0.22.0"` (production)
    - `zone`: DNS zone, e.g., `"home.sflab.io"`
    - `ansible_ssh_public_key_path`: Path to ansible SSH public key
    - `admin_ssh_public_key_path`: Path to admin SSH public key
@@ -146,7 +153,7 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 - Referenced via git source URLs in stack definitions
 - Version pinning via `?ref=branch-or-tag`
   - Staging: `?ref=main` (tracks latest catalog changes via `catalog_version = "main"` in environment.hcl)
-  - Production: `?ref=v0.21.0` (pinned for stability via `catalog_version = "v0.21.0"` in environment.hcl)
+  - Production: `?ref=v0.22.0` (pinned for stability via `catalog_version = "v0.22.0"` in environment.hcl)
 
 **Available Catalog Items** (as used in current stacks):
 - `stacks/homelab-proxmox-vm`: Combined VM + DNS stack (use `stack {}` block)
@@ -155,22 +162,25 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 - `units/proxmox-pool`: Proxmox resource pool management (use `unit {}` block)
 - `units/netbox-tags`: NetBox tag management (use `unit {}` block)
 
-### Vault & Teller Integration
+### Vault & fnox Integration
 
-The repository uses **Teller** (`.teller.yml`) to map HashiCorp Vault secrets to environment variables. This is automatically triggered on directory entry via `mise.toml` (`_.source = "./scripts/load-vault-secrets.sh"`):
+The repository uses **fnox** (`fnox.toml`) to map HashiCorp Vault secrets to environment variables. The mise `fnox-env` plugin loads secrets automatically on directory entry:
 
-- **Vault address**: `https://vault.home.sflab.io:8200`
-- **Secrets loaded**:
-  - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN_PRODUCTION`
-  - `secrets_homelab/netbox_staging.api_token` → `NETBOX_API_TOKEN_STAGING`
-  - `secrets_homelab/technitium.tsig_key_name` → `TECHNITIUM_TSIG_KEY_NAME`
-  - `secrets_homelab/technitium.tsig_key_secret` → `TECHNITIUM_TSIG_KEY_SECRET`
-- **Token resolution order**: `$VAULT_TOKEN` env var → `~/.vault-token` file → AppRole login via `mise run vault:login` (requires `VAULT_ROLE_ID` + `VAULT_SECRET_ID`)
-- If no Vault credentials are available, the script exits silently (secrets stay unset)
-- Note: Teller always runs on directory entry (no early-return skip even if some secrets are already set)
+- **Vault address**: `https://vault.home.sflab.io:8200` (also set as `VAULT_ADDR` env var by mise)
+- **Secrets loaded** (defined in `fnox.toml`):
+  - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN`
+  - `secrets_homelab/technitium.tsig_key_name` → `TSIG_KEY_NAME`
+  - `secrets_homelab/technitium.tsig_key_secret` → `TSIG_KEY_SECRET`
+- **Startup sequence on directory entry**:
+  1. `.mise/scripts/set-vault-token.sh` is sourced — resolves `VAULT_TOKEN` from: `$VAULT_TOKEN` env var → `~/.vault-token` file → exits silently if neither found
+  2. `fnox-env` plugin loads secrets from Vault using `VAULT_TOKEN`
+  3. `enter` hook runs `.mise/scripts/create-vault-token.sh` — creates/refreshes Vault AppRole token, saves to `~/.vault-token`
+- **AppRole credentials**: stored in `~/.vault-approle` (format: `role_id=...` / `secret_id=...`) or via `VAULT_ROLE_ID` / `VAULT_SECRET_ID` env vars
+- Note: The AppRole `secret_id` must be configured for multiple uses (`secret_id_num_uses = 0`) in Vault
 
 **Pre-commit hooks** (`.pre-commit-config.yaml`) enforce:
 - `gitleaks`: Secret scanning before every commit
+- `end-of-file-fixer` / `trailing-whitespace`: File formatting
 - `tofu-fmt` / `tofu-validate`: Terraform formatting and validation
 - `check-staging-catalog-version`: Prevents commits where staging `catalog_version` is not `"main"`
 
@@ -295,21 +305,21 @@ MINIO_PASSWORD                 # MinIO admin password (for setup tasks)
 PROXMOX_VE_ENDPOINT            # Proxmox API endpoint (e.g., https://proxmox.home.sflab.io:8006)
 PROXMOX_VE_API_TOKEN           # Proxmox API token for authentication
 PROXMOX_CONTAINER_PASSWORD     # Password for LXC containers (for container stacks)
-NETBOX_API_TOKEN_PRODUCTION    # NetBox API token (production) — auto-loaded via Teller from Vault
-NETBOX_API_TOKEN_STAGING       # NetBox API token (staging) — auto-loaded via Teller from Vault
-TECHNITIUM_TSIG_KEY_SECRET     # DNS TSIG key secret for dynamic DNS updates (auto-loaded via Teller from Vault)
-TECHNITIUM_TSIG_KEY_NAME       # DNS TSIG key name (auto-loaded via Teller from Vault)
-# Vault credentials (required for Teller auto-loading):
+NETBOX_API_TOKEN               # NetBox API token — auto-loaded via fnox from Vault
+TSIG_KEY_NAME                  # DNS TSIG key name — auto-loaded via fnox from Vault
+TSIG_KEY_SECRET                # DNS TSIG key secret — auto-loaded via fnox from Vault
+# Note: Dagger tasks (apply/plan/destroy) pass TECHNITIUM_TSIG_KEY_NAME and TECHNITIUM_TSIG_KEY_SECRET
+# to the Dagger container; these must be set if using the Dagger-based tasks directly.
+# Vault credentials (required for fnox auto-loading):
 VAULT_TOKEN                    # Vault token (or sourced from ~/.vault-token)
-VAULT_ROLE_ID                  # Vault AppRole role ID (for automated login)
-VAULT_SECRET_ID                # Vault AppRole secret ID (for automated login)
+VAULT_ADDR                     # Vault address — auto-set by mise to https://vault.home.sflab.io:8200
 ```
 
 **Note**: Environment variables are loaded automatically from:
 - `~/.env` (optional, user home directory)
 - `.env` (optional, project root)
 - `.creds.env.yaml` (encrypted with SOPS, project root)
-- Vault via Teller (`load-vault-secrets.sh`, sourced by mise on directory entry)
+- Vault via fnox (`fnox.toml`, loaded by `fnox-env` mise plugin on directory entry)
 
 ## Development Workflow
 
@@ -478,7 +488,7 @@ This removes:
 - **Pool First**: Always deploy the `proxmox-pool` stack before application stacks in each environment
 - **Version Pinning**: Managed via `catalog_version` in each environment's `environment.hcl`
   - Staging: `catalog_version = "main"` (tracks latest catalog changes)
-  - Production: `catalog_version = "v0.21.0"` (pinned for stability)
+  - Production: `catalog_version = "v0.22.0"` (pinned for stability)
 - **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); `proxmox-pool` and `proxmox-mgm-shared-tags` use `unit {}` blocks (referencing catalog units)
 - **Environment Locals**: All stacks use `local.env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals` to reference shared settings (`catalog_version`, `pool_id`, `zone`, `environment_name`, `ansible_ssh_public_key_path`, `admin_ssh_public_key_path`, `netbox_cluster_name`, `netbox_tenant_name`, `netbox_site_name`)
 - **NetBox naming**: All NetBox identifiers use lowercase with hyphens (e.g., `proxmox-staging`, `platform-team`, `sflab-homelab-staging`)
@@ -501,7 +511,7 @@ This removes:
 
 - **State backend issues**: Verify MinIO is accessible and credentials are set
 - **Proxmox authentication**: Ensure `PROXMOX_VE_API_TOKEN` and `PROXMOX_VE_ENDPOINT` are set
-- **NetBox authentication**: Ensure `NETBOX_API_TOKEN_PRODUCTION` and `NETBOX_API_TOKEN_STAGING` are set (loaded automatically via Teller if Vault is accessible)
+- **NetBox authentication**: Ensure `NETBOX_API_TOKEN` is set (loaded automatically via fnox if Vault is accessible)
 - **Cache corruption**: Run `mise run terragrunt:cleanup` to remove all cache directories
 - **Resource conflicts**: If multiple stacks try to create the same resource (e.g., pool), move it to `proxmox-pool` stack
 - **Unit dependencies**:
@@ -651,6 +661,16 @@ This removes:
     - Tags: `["platform-staging"]`
     - Note: Uses `units/netbox-tags` catalog unit
 
+14. **proxmox-vaultwarden-vm** (`staging/proxmox-vaultwarden-vm/`)
+    - Purpose: Vaultwarden password manager VM (self-hosted Bitwarden-compatible server)
+    - Contains: `homelab_proxmox_vm` stack (VM + DNS)
+    - References: `pool-staging` from proxmox-pool stack
+    - DNS zone: `home.sflab.io.`
+    - Network: DHCP
+    - DNS records: normal + wildcard
+    - Memory: 2048MB, Disk: 8GB
+    - SSH key: `keys/ansible_id_ecdsa.pub`
+
 ### Current Production Stacks
 
 1. **proxmox-pool** (`production/proxmox-pool/`)
@@ -714,7 +734,7 @@ This removes:
    - DNS zone: `home.sflab.io.`
    - Network: DHCP
    - DNS records: normal only (no wildcard)
-   - Memory: 4096MB, Disk: 16GB
+   - Memory: 8192MB, Disk: 16GB
    - CPU type: `host` (required for Dagger support)
    - SSH key: `keys/admin_id_ecdsa.pub`
 
