@@ -196,7 +196,7 @@ The repository uses a **Dagger module** (`.dagger/src/index.ts`) to run Terragru
 - `dagger call generate` → `terragrunt stack run generate`
 - `dagger call output` → `terragrunt stack run output`
 
-All Dagger tasks pass the following environment variables into the container: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `PROXMOX_VE_ENDPOINT`, `PROXMOX_VE_API_TOKEN`, `PROXMOX_VE_INSECURE=true`, `NETBOX_API_TOKEN`, `TECHNITIUM_TSIG_KEY_NAME`, `TECHNITIUM_TSIG_KEY_SECRET`, `PROXMOX_CONTAINER_PASSWORD`. The `plan`, `destroy`, `output`, and `generate` tasks additionally pass `TF_VAR_netbox_token`.
+All Dagger tasks pass the following environment variables into the container: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `PROXMOX_VE_ENDPOINT`, `PROXMOX_VE_API_TOKEN`, `PROXMOX_VE_INSECURE=true`, `NETBOX_API_TOKEN`, `TSIG_KEY_NAME`, `TSIG_KEY_SECRET`, `PROXMOX_CONTAINER_PASSWORD`. The `plan`, `destroy`, `output`, and `generate` tasks additionally pass `TF_VAR_netbox_token`.
 
 Tasks with `-old` suffix (e.g., `terragrunt:stack:apply-old`) bypass Dagger and call `terragrunt stack run apply --provider-cache` directly.
 
@@ -312,7 +312,7 @@ PROXMOX_CONTAINER_PASSWORD     # Password for LXC containers (for container stac
 NETBOX_API_TOKEN               # NetBox API token — auto-loaded via fnox from Vault
 TSIG_KEY_NAME                  # DNS TSIG key name — auto-loaded via fnox from Vault
 TSIG_KEY_SECRET                # DNS TSIG key secret — auto-loaded via fnox from Vault
-# Note: Dagger tasks pass TECHNITIUM_TSIG_KEY_NAME and TECHNITIUM_TSIG_KEY_SECRET to the Dagger
+# Note: Dagger tasks pass TSIG_KEY_NAME and TSIG_KEY_SECRET to the Dagger
 # container (separate from TSIG_KEY_NAME/TSIG_KEY_SECRET loaded by fnox); these must be set if
 # using the Dagger-based tasks directly.
 # Vault credentials (required for fnox auto-loading):

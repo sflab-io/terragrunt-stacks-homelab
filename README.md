@@ -141,7 +141,7 @@ TSIG_KEY_NAME=<tsig-key-name>                    # loaded from Vault: secrets_ho
 TSIG_KEY_SECRET=<tsig-key-secret>                # loaded from Vault: secrets_homelab/technitium.tsig_key_secret
 
 # Dagger tasks pass these renamed vars into the container (mapped from TSIG_KEY_* by the Dagger module)
-# TECHNITIUM_TSIG_KEY_NAME and TECHNITIUM_TSIG_KEY_SECRET must be set if calling Dagger tasks directly
+# TSIG_KEY_NAME and TSIG_KEY_SECRET must be set if calling Dagger tasks directly
 
 # LXC containers (dns-lxc, example-lxc stacks)
 PROXMOX_CONTAINER_PASSWORD=<container-password>

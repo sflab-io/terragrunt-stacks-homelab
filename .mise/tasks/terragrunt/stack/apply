@@ -11,6 +11,12 @@
 
 set -e
 
+source "$MISE_CONFIG_ROOT/.mise/common.sh"
+
+# check preconditions, REQUIRED_ENV_VARS default is defined in common.sh
+# redefine the REQUIRED_ENV_VARS=("VAR_NAME_1" "VAR_NAME_2") to overwrite the default list if needed
+checkEnvVars REQUIRED_ENV_VARS
+
 if [[ -z "${usage_env:-}" ]]; then
   ENVIRONMENT=$(printf "staging\nproduction" | gum filter --fuzzy --placeholder "Select an environment:")
 else
@@ -27,10 +33,9 @@ if [[ -z "${usage_target:-}" ]]; then
     stack_dirs+=("$(basename "$dir")")
   done < <(find "." -mindepth 1 -maxdepth 1 -type d -print0)
 
-  # Show a selection menu with gum to select a unit
   SELECTED_STACK=$(printf "%s\n" "${stack_dirs[@]}" | gum filter --fuzzy --placeholder "Select a stack to operate on:")
 else
-  SELECTED_STACK+=("${usage_target}")
+  SELECTED_STACK="${usage_target}"
 fi
 
 
@@ -44,8 +49,8 @@ CMD="dagger call --progress=plain apply \
   --env-vars AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
   --env-vars PROXMOX_VE_API_TOKEN=$PROXMOX_VE_API_TOKEN \
   --env-vars NETBOX_API_TOKEN=$NETBOX_API_TOKEN \
-  --env-vars TECHNITIUM_TSIG_KEY_SECRET=$TECHNITIUM_TSIG_KEY_SECRET \
-  --env-vars TECHNITIUM_TSIG_KEY_NAME=$TECHNITIUM_TSIG_KEY_NAME \
+  --env-vars TSIG_KEY_SECRET=$TSIG_KEY_SECRET \
+  --env-vars TSIG_KEY_NAME=$TSIG_KEY_NAME \
   --env-vars PROXMOX_CONTAINER_PASSWORD=$PROXMOX_CONTAINER_PASSWORD"
 
 echo ""
