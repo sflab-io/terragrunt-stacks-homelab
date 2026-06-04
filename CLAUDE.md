@@ -44,8 +44,8 @@ Run `mise install` to install all required tools, or simply enter the directory 
 ├── keys/                       # SSH public keys for VM access
 │   ├── ansible_id_ecdsa.pub    # Ansible SSH public key
 │   └── admin_id_ecdsa.pub      # Admin SSH public key
-├── scripts/                    # Helper scripts (added to PATH via mise)
-│   └── load-vault-secrets.sh   # Legacy script (kept for reference; replaced by .mise/scripts/)
+├── scripts/                    # Shell scripts on PATH (via mise _.path)
+│   └── load-vault-secrets.sh   # Legacy script (uses teller, not in active use — replaced by fnox)
 ├── .hooks/                     # Git hooks scripts
 │   └── check-staging-catalog-version.sh # Pre-commit hook: enforces catalog_version = "main" in staging
 ├── .mise/                      # mise configuration and automation
@@ -154,6 +154,7 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 - Version pinning via `?ref=branch-or-tag`
   - Staging: `?ref=main` (tracks latest catalog changes via `catalog_version = "main"` in environment.hcl)
   - Production: `?ref=v0.22.0` (pinned for stability via `catalog_version = "v0.22.0"` in environment.hcl)
+- **Note**: `root.hcl` configures `catalog {}` with URL `https://github.com/sflab-io/terragrunt-infrastructure-catalog-homelab.git` for the `terragrunt catalog` browse command — this is a different URL than the git SSH source used in stack `source` fields (`git@github.com:sflab-io/terragrunt-catalog-homelab.git`)
 
 **Available Catalog Items** (as used in current stacks):
 - `stacks/homelab-proxmox-vm`: Combined VM + DNS stack (use `stack {}` block)
@@ -167,6 +168,7 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 The repository uses **fnox** (`fnox.toml`) to map HashiCorp Vault secrets to environment variables. The mise `fnox-env` plugin loads secrets automatically on directory entry:
 
 - **Vault address**: `https://vault.home.sflab.io:8200` (also set as `VAULT_ADDR` env var by mise)
+- **TLS verification**: `VAULT_SKIP_VERIFY = "true"` is set by mise (self-signed cert in homelab)
 - **Secrets loaded** (defined in `fnox.toml`):
   - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN`
   - `secrets_homelab/technitium.tsig_key_name` → `TSIG_KEY_NAME`
@@ -193,6 +195,8 @@ The repository uses a **Dagger module** (`.dagger/src/index.ts`) to run Terragru
 - `dagger call destroy` → `terragrunt stack run destroy --non-interactive`
 - `dagger call generate` → `terragrunt stack run generate`
 - `dagger call output` → `terragrunt stack run output`
+
+All Dagger tasks pass the following environment variables into the container: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `PROXMOX_VE_ENDPOINT`, `PROXMOX_VE_API_TOKEN`, `PROXMOX_VE_INSECURE=true`, `NETBOX_API_TOKEN`, `TECHNITIUM_TSIG_KEY_NAME`, `TECHNITIUM_TSIG_KEY_SECRET`, `PROXMOX_CONTAINER_PASSWORD`. The `plan`, `destroy`, `output`, and `generate` tasks additionally pass `TF_VAR_netbox_token`.
 
 Tasks with `-old` suffix (e.g., `terragrunt:stack:apply-old`) bypass Dagger and call `terragrunt stack run apply --provider-cache` directly.
 
@@ -308,11 +312,13 @@ PROXMOX_CONTAINER_PASSWORD     # Password for LXC containers (for container stac
 NETBOX_API_TOKEN               # NetBox API token — auto-loaded via fnox from Vault
 TSIG_KEY_NAME                  # DNS TSIG key name — auto-loaded via fnox from Vault
 TSIG_KEY_SECRET                # DNS TSIG key secret — auto-loaded via fnox from Vault
-# Note: Dagger tasks (apply/plan/destroy) pass TECHNITIUM_TSIG_KEY_NAME and TECHNITIUM_TSIG_KEY_SECRET
-# to the Dagger container; these must be set if using the Dagger-based tasks directly.
+# Note: Dagger tasks pass TECHNITIUM_TSIG_KEY_NAME and TECHNITIUM_TSIG_KEY_SECRET to the Dagger
+# container (separate from TSIG_KEY_NAME/TSIG_KEY_SECRET loaded by fnox); these must be set if
+# using the Dagger-based tasks directly.
 # Vault credentials (required for fnox auto-loading):
 VAULT_TOKEN                    # Vault token (or sourced from ~/.vault-token)
 VAULT_ADDR                     # Vault address — auto-set by mise to https://vault.home.sflab.io:8200
+VAULT_SKIP_VERIFY              # Auto-set to "true" by mise (homelab uses self-signed TLS cert)
 ```
 
 **Note**: Environment variables are loaded automatically from:
@@ -489,7 +495,7 @@ This removes:
 - **Version Pinning**: Managed via `catalog_version` in each environment's `environment.hcl`
   - Staging: `catalog_version = "main"` (tracks latest catalog changes)
   - Production: `catalog_version = "v0.22.0"` (pinned for stability)
-- **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); `proxmox-pool` and `proxmox-mgm-shared-tags` use `unit {}` blocks (referencing catalog units)
+- **Stack vs Unit**: Application stacks use `stack {}` blocks (referencing catalog stacks); `proxmox-pool`, `proxmox-mgm-shared-tags`, and `proxmox-platform-shared-tags` use `unit {}` blocks (referencing catalog units)
 - **Environment Locals**: All stacks use `local.env = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals` to reference shared settings (`catalog_version`, `pool_id`, `zone`, `environment_name`, `ansible_ssh_public_key_path`, `admin_ssh_public_key_path`, `netbox_cluster_name`, `netbox_tenant_name`, `netbox_site_name`)
 - **NetBox naming**: All NetBox identifiers use lowercase with hyphens (e.g., `proxmox-staging`, `platform-team`, `sflab-homelab-staging`)
 - **Generated Files**: `provider.tf` and `backend.tf` are auto-generated by Terragrunt

@@ -12,7 +12,7 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 - **[MinIO](https://min.io/)** - S3-compatible backend for state storage
 - **[Dagger](https://dagger.io/)** - CI/CD pipeline for running stack operations
 - **[mise](https://mise.jdx.dev/)** - Development tool version management
-- **[HashiCorp Vault](https://www.vaultproject.io/)** + **[Teller](https://tlr.dev/)** - Secrets management and automatic env var injection
+- **[HashiCorp Vault](https://www.vaultproject.io/)** + **[fnox](https://github.com/jdx/fnox)** - Secrets management and automatic env var injection
 
 ## Repository Structure
 
@@ -23,14 +23,12 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 ├── provider-dns-config.hcl     # DNS provider settings
 ├── dagger.json                 # Dagger module configuration
 ├── .dagger/                    # Dagger TypeScript module source
-├── .teller.yml                 # Teller config: maps Vault secrets to env vars
+├── fnox.toml                   # fnox config: maps Vault secrets to env vars
 ├── .pre-commit-config.yaml     # Pre-commit hooks (gitleaks, tofu-fmt, catalog version check)
 ├── mise.toml                   # Tool version management
 ├── keys/                       # SSH public keys
 │   ├── ansible_id_ecdsa.pub
 │   └── admin_id_ecdsa.pub
-├── scripts/                    # Helper scripts (added to PATH via mise)
-│   └── load-vault-secrets.sh   # Auto-sourced on directory entry — loads secrets from Vault via Teller
 ├── .hooks/                     # Git hook scripts
 │   └── check-staging-catalog-version.sh  # Pre-commit: enforces catalog_version="main" in staging
 ├── staging/                    # Staging environment
@@ -135,18 +133,20 @@ MINIO_PASSWORD=<minio-admin-password>
 PROXMOX_VE_ENDPOINT=https://proxmox.home.sflab.io:8006
 PROXMOX_VE_API_TOKEN=<proxmox-api-token>
 
-# NetBox API tokens — auto-loaded from Vault via Teller on directory entry
-NETBOX_API_TOKEN_PRODUCTION=<netbox-api-token>   # loaded from Vault: secrets_homelab/netbox_production
-NETBOX_API_TOKEN_STAGING=<netbox-api-token>      # loaded from Vault: secrets_homelab/netbox_staging
+# NetBox API token — auto-loaded from Vault via fnox on directory entry
+NETBOX_API_TOKEN=<netbox-api-token>              # loaded from Vault: secrets_homelab/netbox_production.api_token
 
-# DNS TSIG key — auto-loaded from Vault via Teller on directory entry
-TECHNITIUM_TSIG_KEY_NAME=<tsig-key-name>         # loaded from Vault: secrets_homelab/technitium
-TECHNITIUM_TSIG_KEY_SECRET=<tsig-key-secret>     # loaded from Vault: secrets_homelab/technitium
+# DNS TSIG key — auto-loaded from Vault via fnox on directory entry
+TSIG_KEY_NAME=<tsig-key-name>                    # loaded from Vault: secrets_homelab/technitium.tsig_key_name
+TSIG_KEY_SECRET=<tsig-key-secret>                # loaded from Vault: secrets_homelab/technitium.tsig_key_secret
+
+# Dagger tasks pass these renamed vars into the container (mapped from TSIG_KEY_* by the Dagger module)
+# TECHNITIUM_TSIG_KEY_NAME and TECHNITIUM_TSIG_KEY_SECRET must be set if calling Dagger tasks directly
 
 # LXC containers (dns-lxc, example-lxc stacks)
 PROXMOX_CONTAINER_PASSWORD=<container-password>
 
-# Vault credentials (required for automatic NetBox token injection via Teller)
+# Vault credentials (required for automatic secret injection via fnox)
 VAULT_TOKEN=<vault-token>         # or stored in ~/.vault-token
 VAULT_ROLE_ID=<role-id>           # for AppRole login (alternative to token)
 VAULT_SECRET_ID=<secret-id>       # for AppRole login (alternative to token)
@@ -156,7 +156,7 @@ Environment variables are loaded from:
 - `~/.env` (optional)
 - `.env` (optional, project root)
 - `.creds.env.yaml` (encrypted with SOPS, project root)
-- **Vault via Teller** (`load-vault-secrets.sh`) — automatically sourced by mise on directory entry
+- **Vault via fnox** — automatically loaded by the `fnox-env` mise plugin on directory entry
 
 ### Tool Versions
 
@@ -241,6 +241,7 @@ terragrunt catalog                  # Browse available modules
 | **proxmox-netbox-vm** | NetBox IPAM/DCIM | VM + DNS | Static (192.168.1.88) |
 | **proxmox-platform-cluster** | Platform K3s cluster (3× combined CP/Worker) + NetBox K8s | 3× VM + DNS + K8s | DHCP |
 | **proxmox-platform-shared-tags** | Platform cluster shared NetBox tags | Unit | - |
+| **proxmox-vaultwarden-vm** | Vaultwarden password manager | VM + DNS | DHCP |
 | **proxmox-example-vm** | Example VM template | VM + DNS | Static (192.168.1.45) |
 | **proxmox-example-lxc** | Example LXC template | LXC + DNS | Static (192.168.1.44) |
 
@@ -304,13 +305,14 @@ mise run terragrunt:cleanup
 - Ensure `PROXMOX_VE_API_TOKEN` and `PROXMOX_VE_ENDPOINT` are set
 
 **NetBox / DNS authentication:**
-- `NETBOX_API_TOKEN_PRODUCTION`, `NETBOX_API_TOKEN_STAGING`, `TECHNITIUM_TSIG_KEY_NAME`, `TECHNITIUM_TSIG_KEY_SECRET` must be set
-- These are loaded automatically from Vault via Teller if `VAULT_TOKEN` (or `~/.vault-token`) is available
+- `NETBOX_API_TOKEN`, `TSIG_KEY_NAME`, `TSIG_KEY_SECRET` must be set
+- These are loaded automatically from Vault via fnox if `VAULT_TOKEN` (or `~/.vault-token`) is available
 
-**Vault / Teller not loading secrets:**
+**Vault / fnox not loading secrets:**
 - Check `VAULT_ADDR` is reachable: `https://vault.home.sflab.io:8200`
 - Ensure a valid `VAULT_TOKEN` is set or `~/.vault-token` exists
-- For AppRole login, set `VAULT_ROLE_ID` and `VAULT_SECRET_ID`
+- AppRole credentials must be in `~/.vault-approle` (`role_id=...` / `secret_id=...`) or via `VAULT_ROLE_ID` / `VAULT_SECRET_ID`
+- The AppRole `secret_id` must be configured for multiple uses (`secret_id_num_uses = 0`) in Vault
 
 **Dagger cache issues:**
 - If apply shows success but VM is missing, check state and use `-old` variant:
@@ -330,17 +332,16 @@ mise run terragrunt:cleanup
 - **Unit**: Single infrastructure component (VM, LXC, DNS record, K8s cluster)
 - **Catalog**: External repository with reusable modules
 
-### Vault & Teller Integration
+### Vault & fnox Integration
 
-Secrets are managed via **HashiCorp Vault** and loaded automatically using **Teller** (`.teller.yml`) when entering the directory:
+Secrets are managed via **HashiCorp Vault** and loaded automatically using **fnox** (`fnox.toml`) on directory entry via the `fnox-env` mise plugin:
 
-1. `mise.toml` sources `scripts/load-vault-secrets.sh` on directory entry
-2. The script resolves a Vault token (`$VAULT_TOKEN` → `~/.vault-token` → AppRole login)
-3. Teller reads secrets from Vault and exports them as environment variables:
-   - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN_PRODUCTION`
-   - `secrets_homelab/netbox_staging.api_token` → `NETBOX_API_TOKEN_STAGING`
-   - `secrets_homelab/technitium.tsig_key_name` → `TECHNITIUM_TSIG_KEY_NAME`
-   - `secrets_homelab/technitium.tsig_key_secret` → `TECHNITIUM_TSIG_KEY_SECRET`
+1. `.mise/scripts/set-vault-token.sh` is sourced — resolves `VAULT_TOKEN` from `$VAULT_TOKEN` env var or `~/.vault-token`
+2. `fnox-env` reads `fnox.toml` and exports secrets from Vault as environment variables:
+   - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN`
+   - `secrets_homelab/technitium.tsig_key_name` → `TSIG_KEY_NAME`
+   - `secrets_homelab/technitium.tsig_key_secret` → `TSIG_KEY_SECRET`
+3. The `enter` hook runs `.mise/scripts/create-vault-token.sh` to create/refresh the Vault AppRole token and save it to `~/.vault-token`
 
 ### Dagger Integration
 

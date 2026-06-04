@@ -14,6 +14,18 @@ VAULT_ADDR="${VAULT_ADDR:-https://vault.home.sflab.io:8200}"
 APPROLE_FILE="${HOME}/.vault-approle"
 TOKEN_FILE="${HOME}/.vault-token"
 
+# check vault server availability before proceeding
+# in a early stage of the infrastructure provisioning, the vault server might not be available yet.
+# in that case, we should fail gracefully with a clear message instead of a generic curl error.
+if ! curl --silent --max-time 5 --insecure "${VAULT_ADDR}/v1/sys/health" >/dev/null 2>&1; then
+  echo "" >&2
+  echo "${BOLD}${YELLOW}⚠️ fnox environment variables could not be loaded.${RESET}" >&2
+  echo "${BOLD}${YELLOW}[vault] [vault] Vault server is not reachable at: ${VAULT_ADDR}${RESET}" >&2
+  echo "${BOLD}${YELLOW}[vault] Is the Vault server running?${RESET}" >&2
+  echo ""
+  exit 1
+fi
+
 if [[ -f "${APPROLE_FILE}" ]]; then
   # shellcheck source=/dev/null
   source "${APPROLE_FILE}"

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Sourced by mise [env] _.source on directory entry.
-# Loads Vault secrets as env vars via Teller.
 
 export VAULT_ADDR="${VAULT_ADDR:-https://vault.home.sflab.io:8200}"
 
