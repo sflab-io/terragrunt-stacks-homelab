@@ -18,12 +18,15 @@ checkEnvVars() {
   local _var
   local _vals
   local _missing_vars=()
+
   eval "_vals=(\"\${${_arr_name}[@]}\")"
+
   for _var in "${_vals[@]}"; do
     if [[ -z "${!_var:-}" ]]; then
       _missing_vars+=("$_var")
     fi
   done
+
   if [[ ${#_missing_vars[@]} -gt 0 ]]; then
     echo "" >&2
     echo "${RED}[ERROR] Missing environment variables${RESET}" >&2
@@ -31,6 +34,7 @@ checkEnvVars() {
     for _var in "${_missing_vars[@]}"; do
       echo "  - $_var" >&2
     done
+
     echo "" >&2
     echo "These variables could not be loaded. This happens when:" >&2
     echo "  • Vault is not yet available (initial infrastructure setup), or" >&2
@@ -41,9 +45,41 @@ checkEnvVars() {
     for _var in "${_missing_vars[@]}"; do
       echo "  export $_var=\"...\"" >&2
     done
+
     echo "" >&2
-    exit 1
+
+    sleep 3
   fi
+}
+
+# Prompt for environment selection, or use usage_env if already provided.
+# Prints the selected environment name to stdout; status message goes to stderr.
+selectEnvironment() {
+  local env
+  if [[ -z "${usage_env:-}" ]]; then
+    env=$(printf "staging\nproduction" | gum filter --fuzzy --placeholder "Select an environment:")
+  else
+    env="${usage_env}"
+  fi
+  echo "Selected environment: $env" >&2
+  echo "$env"
+}
+
+# Prompt for stack selection from directories in CWD, or use usage_target if already provided.
+# Must be called after cd-ing into the environment directory.
+# Prints the selected stack name to stdout.
+selectStack() {
+  local stack
+  if [[ -z "${usage_target:-}" ]]; then
+    local stack_dirs=()
+    while IFS= read -r -d '' dir; do
+      stack_dirs+=("$(basename "$dir")")
+    done < <(find "." -mindepth 1 -maxdepth 1 -type d -print0)
+    stack=$(printf "%s\n" "${stack_dirs[@]}" | gum filter --fuzzy --placeholder "Select a stack to operate on:")
+  else
+    stack="${usage_target}"
+  fi
+  echo "$stack"
 }
 
 # Log a command before execution

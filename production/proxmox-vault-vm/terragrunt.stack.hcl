@@ -19,10 +19,8 @@ locals {
     wildcard = false
   }
 
-  #
-  cluster_name = local.env.netbox_cluster_name
-  tenant_name  = local.env.netbox_tenant_name
-  site_name    = local.env.netbox_site_name
+  # Set to empty list to avoid try to add the vm to netbox before netbox is available.
+  virtual_machines = []
 }
 
 stack "homelab_proxmox_vm" {
@@ -48,9 +46,7 @@ stack "homelab_proxmox_vm" {
     pool_id             = local.env.pool_id
     ssh_public_key_path = local.env.ansible_ssh_public_key_path
 
-    #
-    cluster_name = local.cluster_name
-    tenant_name  = local.tenant_name
-    site_name    = local.site_name
+    # Set to empty list to avoid try to add the vm to netbox before netbox is available.
+    virtual_machines = local.virtual_machines
   }
 }

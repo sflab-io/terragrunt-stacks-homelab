@@ -10,29 +10,13 @@
 
 set -e
 
-if [[ -z "${usage_env:-}" ]]; then
-  ENVIRONMENT=$(printf "staging\nproduction" | gum filter --fuzzy --placeholder "Select an environment:")
-else
-  ENVIRONMENT="${usage_env}"
-fi
-echo "Selected environment: $ENVIRONMENT"
+source "$MISE_CONFIG_ROOT/.mise/common.sh"
+
+ENVIRONMENT=$(selectEnvironment)
 
 cd "$MISE_CONFIG_ROOT/$ENVIRONMENT"
 
-if [[ -z "${usage_target:-}" ]]; then
-  stack_dirs=()
-
-  while IFS= read -r -d '' dir; do
-    stack_dirs+=("$(basename "$dir")")
-  done < <(find "." -mindepth 1 -maxdepth 1 -type d -print0)
-
-  # Show a selection menu with gum to select a unit
-  SELECTED_STACK=$(printf "%s\n" "${stack_dirs[@]}" | gum filter --fuzzy --placeholder "Select a stack to operate on:")
-else
-  SELECTED_STACK+=("${usage_target}")
-fi
-
-export TF_VAR_netbox_token="${NETBOX_API_TOKEN}"
+SELECTED_STACK=$(selectStack)
 
 CMD="dagger call --progress=plain output \
   --source $MISE_CONFIG_ROOT \
@@ -44,20 +28,10 @@ CMD="dagger call --progress=plain output \
   --env-vars AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
   --env-vars PROXMOX_VE_API_TOKEN=$PROXMOX_VE_API_TOKEN \
   --env-vars NETBOX_API_TOKEN=$NETBOX_API_TOKEN \
-  --env-vars TF_VAR_netbox_token=$TF_VAR_netbox_token \
   --env-vars TSIG_KEY_SECRET=$TSIG_KEY_SECRET \
   --env-vars TSIG_KEY_NAME=$TSIG_KEY_NAME \
   --env-vars PROXMOX_CONTAINER_PASSWORD=$PROXMOX_CONTAINER_PASSWORD"
 
-echo ""
-echo "🚀 Executing 'mise run terragrunt:stack:output $ENVIRONMENT $SELECTED_STACK'"
-echo "   Commands: $CMD"
-echo "   Working dir: $(pwd)"
-echo ""
-
-if [ "$usage_dry_run" = "true" ]; then
-  echo "Dry run mode. Command not executed."
-  exit 0
-fi
+logCommand "$CMD" "$usage_dry_run"
 
 eval $CMD
