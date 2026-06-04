@@ -15,7 +15,8 @@ source "$MISE_CONFIG_ROOT/.mise/common.sh"
 
 # check preconditions, REQUIRED_ENV_VARS default is defined in common.sh
 # redefine the REQUIRED_ENV_VARS=("VAR_NAME_1" "VAR_NAME_2") to overwrite the default list if needed
-checkEnvVars REQUIRED_ENV_VARS
+checkRequiredEnvVars REQUIRED_ENV_VARS
+checkOptionalEnvVars OPTIONAL_ENV_VARS
 
 ENVIRONMENT=$(selectEnvironment)
 

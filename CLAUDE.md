@@ -44,8 +44,6 @@ Run `mise install` to install all required tools, or simply enter the directory 
 ├── keys/                       # SSH public keys for VM access
 │   ├── ansible_id_ecdsa.pub    # Ansible SSH public key
 │   └── admin_id_ecdsa.pub      # Admin SSH public key
-├── scripts/                    # Shell scripts on PATH (via mise _.path)
-│   └── load-vault-secrets.sh   # Legacy script (uses teller, not in active use — replaced by fnox)
 ├── .hooks/                     # Git hooks scripts
 │   └── check-staging-catalog-version.sh # Pre-commit hook: enforces catalog_version = "main" in staging
 ├── .mise/                      # mise configuration and automation
@@ -170,9 +168,9 @@ The repository uses **fnox** (`fnox.toml`) to map HashiCorp Vault secrets to env
 - **Vault address**: `https://vault.home.sflab.io:8200` (also set as `VAULT_ADDR` env var by mise)
 - **TLS verification**: `VAULT_SKIP_VERIFY = "true"` is set by mise (self-signed cert in homelab)
 - **Secrets loaded** (defined in `fnox.toml`):
-  - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN`
-  - `secrets_homelab/technitium.tsig_key_name` → `TSIG_KEY_NAME`
-  - `secrets_homelab/technitium.tsig_key_secret` → `TSIG_KEY_SECRET`
+  - `secrets_homelab/netbox_production/api_token` → `NETBOX_API_TOKEN`
+  - `secrets_homelab/technitium/tsig_key_name` → `TSIG_KEY_NAME`
+  - `secrets_homelab/technitium/tsig_key_secret` → `TSIG_KEY_SECRET`
 - **Startup sequence on directory entry**:
   1. `.mise/scripts/set-vault-token.sh` is sourced — resolves `VAULT_TOKEN` from: `$VAULT_TOKEN` env var → `~/.vault-token` file → exits silently if neither found
   2. `fnox-env` plugin loads secrets from Vault using `VAULT_TOKEN`
@@ -196,7 +194,7 @@ The repository uses a **Dagger module** (`.dagger/src/index.ts`) to run Terragru
 - `dagger call generate` → `terragrunt stack run generate`
 - `dagger call output` → `terragrunt stack run output`
 
-All Dagger tasks pass the following environment variables into the container: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `PROXMOX_VE_ENDPOINT`, `PROXMOX_VE_API_TOKEN`, `PROXMOX_VE_INSECURE=true`, `NETBOX_API_TOKEN`, `TSIG_KEY_NAME`, `TSIG_KEY_SECRET`, `PROXMOX_CONTAINER_PASSWORD`. The `plan`, `destroy`, `output`, and `generate` tasks additionally pass `TF_VAR_netbox_token`.
+All Dagger tasks pass the following environment variables into the container: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `PROXMOX_VE_ENDPOINT`, `PROXMOX_VE_API_TOKEN`, `PROXMOX_VE_INSECURE=true`, `NETBOX_API_TOKEN`, `TSIG_KEY_NAME`, `TSIG_KEY_SECRET`, `PROXMOX_CONTAINER_PASSWORD`.
 
 Tasks with `-old` suffix (e.g., `terragrunt:stack:apply-old`) bypass Dagger and call `terragrunt stack run apply --provider-cache` directly.
 
@@ -583,6 +581,7 @@ This removes:
    - DNS records: normal only (no wildcard)
    - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
+   - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
 
 6. **proxmox-github-runner-vm** (`staging/proxmox-github-runner-vm/`)
    - Purpose: GitHub Actions runner VM
@@ -637,7 +636,6 @@ This removes:
     - DNS records: normal only (no wildcard)
     - Memory: 2048MB, Disk: 8GB
     - SSH key: `keys/ansible_id_ecdsa.pub`
-    - NetBox role: `"Example VM"`
 
 11. **proxmox-example-lxc** (`staging/proxmox-example-lxc/`)
     - Purpose: Example/template LXC stack for reference
@@ -646,7 +644,6 @@ This removes:
     - DNS records: normal only (no wildcard)
     - Memory: 4096MB, Disk: 8GB
     - SSH key: `keys/ansible_id_ecdsa.pub`
-    - NetBox role: `"Example LXC"`
     - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
 12. **proxmox-platform-cluster** (`staging/proxmox-platform-cluster/`)
@@ -730,6 +727,7 @@ This removes:
    - DNS zone: `home.sflab.io.`
    - Network: DHCP
    - DNS records: normal only (no wildcard)
+   - Memory: 4096MB, Disk: 16GB
    - CPU type: `host` (required for Dagger support)
    - SSH key: `keys/admin_id_ecdsa.pub`
 
@@ -775,7 +773,6 @@ This removes:
     - DNS records: normal only (no wildcard)
     - Memory: 4096MB, Disk: 8GB
     - SSH key: `keys/ansible_id_ecdsa.pub`
-    - NetBox role: `"Example VM"`
 
 11. **proxmox-example-lxc** (`production/proxmox-example-lxc/`)
     - Purpose: Example/template LXC stack for reference (production)
@@ -784,7 +781,6 @@ This removes:
     - DNS records: normal only (no wildcard)
     - Memory: 4096MB, Disk: 8GB
     - SSH key: `keys/ansible_id_ecdsa.pub`
-    - NetBox role: `"Example LXC"`
     - Requires: `PROXMOX_CONTAINER_PASSWORD` environment variable
 
 12. **proxmox-platform-cluster** (`production/proxmox-platform-cluster/`)

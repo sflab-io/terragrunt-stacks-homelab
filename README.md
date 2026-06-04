@@ -134,11 +134,11 @@ PROXMOX_VE_ENDPOINT=https://proxmox.home.sflab.io:8006
 PROXMOX_VE_API_TOKEN=<proxmox-api-token>
 
 # NetBox API token — auto-loaded from Vault via fnox on directory entry
-NETBOX_API_TOKEN=<netbox-api-token>              # loaded from Vault: secrets_homelab/netbox_production.api_token
+NETBOX_API_TOKEN=<netbox-api-token>              # loaded from Vault: secrets_homelab/netbox_production/api_token
 
 # DNS TSIG key — auto-loaded from Vault via fnox on directory entry
-TSIG_KEY_NAME=<tsig-key-name>                    # loaded from Vault: secrets_homelab/technitium.tsig_key_name
-TSIG_KEY_SECRET=<tsig-key-secret>                # loaded from Vault: secrets_homelab/technitium.tsig_key_secret
+TSIG_KEY_NAME=<tsig-key-name>                    # loaded from Vault: secrets_homelab/technitium/tsig_key_name
+TSIG_KEY_SECRET=<tsig-key-secret>                # loaded from Vault: secrets_homelab/technitium/tsig_key_secret
 
 # Dagger tasks pass these renamed vars into the container (mapped from TSIG_KEY_* by the Dagger module)
 # TSIG_KEY_NAME and TSIG_KEY_SECRET must be set if calling Dagger tasks directly
@@ -338,9 +338,9 @@ Secrets are managed via **HashiCorp Vault** and loaded automatically using **fno
 
 1. `.mise/scripts/set-vault-token.sh` is sourced — resolves `VAULT_TOKEN` from `$VAULT_TOKEN` env var or `~/.vault-token`
 2. `fnox-env` reads `fnox.toml` and exports secrets from Vault as environment variables:
-   - `secrets_homelab/netbox_production.api_token` → `NETBOX_API_TOKEN`
-   - `secrets_homelab/technitium.tsig_key_name` → `TSIG_KEY_NAME`
-   - `secrets_homelab/technitium.tsig_key_secret` → `TSIG_KEY_SECRET`
+   - `secrets_homelab/netbox_production/api_token` → `NETBOX_API_TOKEN`
+   - `secrets_homelab/technitium/tsig_key_name` → `TSIG_KEY_NAME`
+   - `secrets_homelab/technitium/tsig_key_secret` → `TSIG_KEY_SECRET`
 3. The `enter` hook runs `.mise/scripts/create-vault-token.sh` to create/refresh the Vault AppRole token and save it to `~/.vault-token`
 
 ### Dagger Integration
