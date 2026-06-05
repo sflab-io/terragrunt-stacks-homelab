@@ -94,6 +94,7 @@ This repository uses Terragrunt's **Stacks** feature for managing multi-unit dep
    - Both staging and production use: `http://netbox.home.sflab.io` (`skip_version_check = true`)
    - Both environments use `NETBOX_API_TOKEN` (shared NetBox instance)
    - Used for registering VMs/LXC containers in NetBox IPAM/DCIM
+   - When `NETBOX_API_TOKEN` is not set, falls back to `"unset_while_netbox_not_available"` (allows deploying stacks before NetBox is available)
 
 5. **environment.hcl**: Environment-specific variables shared by all stacks
    - `environment_name`: e.g., `"staging"` or `"production"`
@@ -175,7 +176,7 @@ The repository uses **fnox** (`fnox.toml`) to map HashiCorp Vault secrets to env
   1. `.mise/scripts/set-vault-token.sh` is sourced — resolves `VAULT_TOKEN` from: `$VAULT_TOKEN` env var → `~/.vault-token` file → exits silently if neither found
   2. `fnox-env` plugin loads secrets from Vault using `VAULT_TOKEN`
   3. `enter` hook runs `.mise/scripts/create-vault-token.sh` — creates/refreshes Vault AppRole token, saves to `~/.vault-token`
-- **AppRole credentials**: stored in `~/.vault-approle` (format: `role_id=...` / `secret_id=...`) or via `VAULT_ROLE_ID` / `VAULT_SECRET_ID` env vars
+- **AppRole credentials**: stored in `~/.vault-approle` (format: `role_id=...` / `secret_id=...`)
 - Note: The AppRole `secret_id` must be configured for multiple uses (`secret_id_num_uses = 0`) in Vault
 
 **Pre-commit hooks** (`.pre-commit-config.yaml`) enforce:
@@ -307,12 +308,9 @@ MINIO_PASSWORD                 # MinIO admin password (for setup tasks)
 PROXMOX_VE_ENDPOINT            # Proxmox API endpoint (e.g., https://proxmox.home.sflab.io:8006)
 PROXMOX_VE_API_TOKEN           # Proxmox API token for authentication
 PROXMOX_CONTAINER_PASSWORD     # Password for LXC containers (for container stacks)
-NETBOX_API_TOKEN               # NetBox API token — auto-loaded via fnox from Vault
+TSIG_KEY_SECRET                # DNS TSIG key secret — auto-loaded via fnox from Vault (REQUIRED by tasks)
 TSIG_KEY_NAME                  # DNS TSIG key name — auto-loaded via fnox from Vault
-TSIG_KEY_SECRET                # DNS TSIG key secret — auto-loaded via fnox from Vault
-# Note: Dagger tasks pass TSIG_KEY_NAME and TSIG_KEY_SECRET to the Dagger
-# container (separate from TSIG_KEY_NAME/TSIG_KEY_SECRET loaded by fnox); these must be set if
-# using the Dagger-based tasks directly.
+NETBOX_API_TOKEN               # NetBox API token — auto-loaded via fnox from Vault (OPTIONAL: tasks warn if missing, provider uses fallback "unset_while_netbox_not_available")
 # Vault credentials (required for fnox auto-loading):
 VAULT_TOKEN                    # Vault token (or sourced from ~/.vault-token)
 VAULT_ADDR                     # Vault address — auto-set by mise to https://vault.home.sflab.io:8200
@@ -719,6 +717,7 @@ This removes:
    - DNS records: normal only (no wildcard)
    - Memory: 4096MB, Disk: 8GB
    - SSH key: `keys/ansible_id_ecdsa.pub`
+   - Note: `virtual_machines = []` set to avoid circular dependency on first deploy
 
 6. **proxmox-github-runner-vm** (`production/proxmox-github-runner-vm/`)
    - Purpose: GitHub Actions runner VM (production)

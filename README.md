@@ -148,8 +148,7 @@ PROXMOX_CONTAINER_PASSWORD=<container-password>
 
 # Vault credentials (required for automatic secret injection via fnox)
 VAULT_TOKEN=<vault-token>         # or stored in ~/.vault-token
-VAULT_ROLE_ID=<role-id>           # for AppRole login (alternative to token)
-VAULT_SECRET_ID=<secret-id>       # for AppRole login (alternative to token)
+# AppRole credentials stored in ~/.vault-approle (role_id=... / secret_id=...)
 ```
 
 Environment variables are loaded from:
@@ -311,7 +310,7 @@ mise run terragrunt:cleanup
 **Vault / fnox not loading secrets:**
 - Check `VAULT_ADDR` is reachable: `https://vault.home.sflab.io:8200`
 - Ensure a valid `VAULT_TOKEN` is set or `~/.vault-token` exists
-- AppRole credentials must be in `~/.vault-approle` (`role_id=...` / `secret_id=...`) or via `VAULT_ROLE_ID` / `VAULT_SECRET_ID`
+- AppRole credentials must be in `~/.vault-approle` (`role_id=...` / `secret_id=...`)
 - The AppRole `secret_id` must be configured for multiple uses (`secret_id_num_uses = 0`) in Vault
 
 **Dagger cache issues:**
