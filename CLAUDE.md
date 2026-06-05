@@ -168,7 +168,7 @@ The repository uses **fnox** (`fnox.toml`) to map HashiCorp Vault secrets to env
 - **Vault address**: `https://vault.home.sflab.io:8200` (also set as `VAULT_ADDR` env var by mise)
 - **TLS verification**: `VAULT_SKIP_VERIFY = "true"` is set by mise (self-signed cert in homelab)
 - **Secrets loaded** (defined in `fnox.toml`):
-  - `secrets_homelab/netbox_production/api_token` → `NETBOX_API_TOKEN`
+  - `secrets_homelab/netbox/api_token` → `NETBOX_API_TOKEN`
   - `secrets_homelab/technitium/tsig_key_name` → `TSIG_KEY_NAME`
   - `secrets_homelab/technitium/tsig_key_secret` → `TSIG_KEY_SECRET`
 - **Startup sequence on directory entry**:

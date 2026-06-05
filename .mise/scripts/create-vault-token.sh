@@ -39,8 +39,8 @@ else
   exit 1
 fi
 
-ROLE_ID="${VAULT_ROLE_ID:-${role_id:-}}"
-SECRET_ID="${VAULT_SECRET_ID:-${secret_id:-}}"
+ROLE_ID="${role_id:-}"
+SECRET_ID="${secret_id:-}"
 
 if [[ -z "${ROLE_ID}" || -z "${SECRET_ID}" ]]; then
   echo "[vault] AppRole credentials not found." >&2

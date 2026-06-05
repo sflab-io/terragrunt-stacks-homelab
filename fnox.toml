@@ -2,6 +2,6 @@
 vault = { type = "vault", address = "https://vault.home.sflab.io:8200", path = "secrets_homelab" }
 
 [secrets]
-NETBOX_API_TOKEN = { provider = "vault", value = "netbox_production/api_token", description = "NetBox API token from Vault KV secrets_homelab/netbox_production" }
+NETBOX_API_TOKEN = { provider = "vault", value = "netbox/api_token", description = "NetBox API token from Vault KV secrets_homelab/netbox_production" }
 TSIG_KEY_NAME = { provider = "vault", value = "technitium/tsig_key_name", description = "Technitium DNS Server TSIG key name from Vault KV secrets_homelab/technitium" }
 TSIG_KEY_SECRET = { provider = "vault", value = "technitium/tsig_key_secret", description = "Technitium DNS Server TSIG key secret from Vault KV secrets_homelab/technitium" }
