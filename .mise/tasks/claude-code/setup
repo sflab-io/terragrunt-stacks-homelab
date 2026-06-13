@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+#MISE description="Setup for Claude Code"
+
+echo ""
+echo "Instructions for setting up Claude Code plugin marketplace and installing terraform-skill plugin."
+echo "1. Open a claude code session by running 'claude' in your terminal."
+echo "2. In the claude code session, run the following commands:"
+echo "   /plugin marketplace add antonbabenko/agent-plugins"
+echo "   /plugin install terraform-skill@antonbabenko"

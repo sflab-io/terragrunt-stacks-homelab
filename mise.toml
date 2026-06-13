@@ -13,8 +13,10 @@ fnox-env = "https://github.com/jdx/mise-env-fnox"
 
 [env]
 PROJECT_NAME = "{{ config_root | basename }}"
+
 VAULT_ADDR = "https://vault.home.sflab.io:8200"
 VAULT_SKIP_VERIFY = "true"
+VAULT_TOKEN = "{{ exec(command='cat ~/.vault-token') }}"
 
 _.file = [
   { path = "{{env.HOME}}/.env", optional = true },
@@ -26,16 +28,7 @@ _.path = ["./scripts"]
 
 # required for fnox to work properly
 # must be run before _.fnox-env since it relies on the token being valid to load secrets
-_.source = [".mise/scripts/set-vault-token.sh"]
 _.fnox-env = { tools = true }
 
 [hooks]
-enter = [
-  'echo "\n[MISE] Setup $PROJECT_NAME project..."',
-  #
-  'mise i -q',
-  #
-  'pre-commit install -f --hook-type pre-commit',
-  #
-  '.mise/scripts/create-vault-token.sh',
-]
+enter = { task = "hooks:enter" }

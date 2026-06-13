@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Creates a Vault AppRole token and saves it to ~/.vault-token.
+# Credentials are read from ~/.vault-approle (format: role_id=... / secret_id=...)
+# or from VAULT_ROLE_ID / VAULT_SECRET_ID environment variables.
+#
+# Note: The AppRole secret_id must be configured for multiple uses
+# (secret_id_num_uses = 0) in Vault, otherwise it expires after first use.
+
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/.mise/common.sh"
+
+VAULT_ADDR="${VAULT_ADDR:-https://vault.home.sflab.io:8200}"
+TOKEN_FILE="${HOME}/.vault-token"
+
+# check vault server availability before proceeding
+# in a early stage of the infrastructure provisioning, the vault server might not be available yet.
+# in that case, we should fail gracefully with a clear message instead of a generic curl error.
+if ! curl --silent --max-time 5 --insecure "${VAULT_ADDR}/v1/sys/health" >/dev/null 2>&1; then
+  echo "" >&2
+  echo "${BOLD}${YELLOW}⚠️ fnox environment variables could not be loaded.${RESET}" >&2
+  echo "${BOLD}${YELLOW}[vault] [vault] Vault server is not reachable at: ${VAULT_ADDR}${RESET}" >&2
+  echo "${BOLD}${YELLOW}[vault] Is the Vault server running?${RESET}" >&2
+  echo ""
+  exit 1
+fi
+
+if [[ -z "${VAULT_ROLE_ID}" || -z "${VAULT_SECRET_ID}" ]]; then
+  echo "[vault] AppRole credentials not found." >&2
+  echo "[vault] Missing VAULT_ROLE_ID or VAULT_SECRET_ID environment variables." >&2
+  exit 1
+fi
+
+TOKEN=$(HOME=$(mktemp -d) VAULT_ADDR="${VAULT_ADDR}" VAULT_SKIP_VERIFY=${VAULT_SKIP_VERIFY} vault write -field=token auth/approle/login \
+  role_id="${VAULT_ROLE_ID}" \
+  secret_id="${VAULT_SECRET_ID}" 2>&1) || {
+  echo "[vault] Failed to create token: ${TOKEN}" >&2
+  exit 1
+}
+
+echo "${TOKEN}" >"${TOKEN_FILE}"
+chmod 600 "${TOKEN_FILE}"
+echo ""
+echo "${BOLD}${GREEN}[vault] Token created and saved to ${TOKEN_FILE}${RESET}"
