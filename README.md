@@ -46,6 +46,7 @@ This repository manages homelab infrastructure (VMs and LXC containers) on Proxm
 │   ├── proxmox-netbox-vm/
 │   ├── proxmox-platform-cluster/
 │   ├── proxmox-platform-shared-tags/
+│   ├── proxmox-vaultwarden-vm/
 │   ├── proxmox-example-vm/
 │   └── proxmox-example-lxc/
 └── production/                 # Production environment
@@ -147,8 +148,9 @@ TSIG_KEY_SECRET=<tsig-key-secret>                # loaded from Vault: secrets_ho
 PROXMOX_CONTAINER_PASSWORD=<container-password>
 
 # Vault credentials (required for automatic secret injection via fnox)
-VAULT_TOKEN=<vault-token>         # or stored in ~/.vault-token
-# AppRole credentials stored in ~/.vault-approle (role_id=... / secret_id=...)
+VAULT_TOKEN=<vault-token>         # auto-set by mise from ~/.vault-token
+VAULT_ROLE_ID=<vault-role-id>     # AppRole role_id, used by `vault:create-token` to refresh ~/.vault-token
+VAULT_SECRET_ID=<vault-secret-id> # AppRole secret_id, used by `vault:create-token` to refresh ~/.vault-token
 ```
 
 Environment variables are loaded from:
@@ -166,6 +168,8 @@ Managed automatically via `mise.toml`:
 - **Dagger**: latest
 - **MinIO Client**: latest
 - **Vault**: 1.21.1
+- **fnox**: latest
+- **pre-commit**: latest
 
 ## Common Commands
 
@@ -198,7 +202,10 @@ mise run terragrunt:cleanup       # Clean cache directories
 mise run network:configure        # Configure network settings
 mise run network:status           # View network status
 mise run secrets:edit <file>      # Edit SOPS-encrypted secrets
+mise run claude-code:setup        # Print Claude Code plugin marketplace setup instructions
 ```
+
+> **Note**: `hooks:enter` and `vault:create-token` run automatically on directory entry (via the mise `enter` hook) and do not need to be run manually.
 
 All interactive tasks accept optional positional arguments:
 ```bash
@@ -308,9 +315,9 @@ mise run terragrunt:cleanup
 - These are loaded automatically from Vault via fnox if `VAULT_TOKEN` (or `~/.vault-token`) is available
 
 **Vault / fnox not loading secrets:**
-- Check `VAULT_ADDR` is reachable: `https://vault.home.sflab.io:8200`
+- Check `VAULT_ADDR` is reachable: `https://vault.home.sflab.io`
 - Ensure a valid `VAULT_TOKEN` is set or `~/.vault-token` exists
-- AppRole credentials must be in `~/.vault-approle` (`role_id=...` / `secret_id=...`)
+- `VAULT_ROLE_ID` / `VAULT_SECRET_ID` must be set so the `vault:create-token` task can refresh `~/.vault-token`
 - The AppRole `secret_id` must be configured for multiple uses (`secret_id_num_uses = 0`) in Vault
 
 **Dagger cache issues:**
@@ -335,12 +342,12 @@ mise run terragrunt:cleanup
 
 Secrets are managed via **HashiCorp Vault** and loaded automatically using **fnox** (`fnox.toml`) on directory entry via the `fnox-env` mise plugin:
 
-1. `.mise/scripts/set-vault-token.sh` is sourced — resolves `VAULT_TOKEN` from `$VAULT_TOKEN` env var or `~/.vault-token`
+1. `mise.toml` sets `VAULT_TOKEN` via `cat ~/.vault-token`
 2. `fnox-env` reads `fnox.toml` and exports secrets from Vault as environment variables:
    - `secrets_homelab/netbox/api_token` → `NETBOX_API_TOKEN`
    - `secrets_homelab/technitium/tsig_key_name` → `TSIG_KEY_NAME`
    - `secrets_homelab/technitium/tsig_key_secret` → `TSIG_KEY_SECRET`
-3. The `enter` hook runs `.mise/scripts/create-vault-token.sh` to create/refresh the Vault AppRole token and save it to `~/.vault-token`
+3. The `enter` hook runs the `hooks:enter` task, which runs `mise install`, installs pre-commit hooks, and runs `vault:create-token` to create/refresh the Vault AppRole token (using `VAULT_ROLE_ID` / `VAULT_SECRET_ID`) and save it to `~/.vault-token`
 
 ### Dagger Integration
 

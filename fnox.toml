@@ -1,5 +1,5 @@
 [providers]
-vault = { type = "vault", address = "https://vault.home.sflab.io:8200", path = "secrets_homelab" }
+vault = { type = "vault", path = "secrets_homelab" }
 
 [secrets]
 NETBOX_API_TOKEN = { provider = "vault", value = "netbox/api_token", description = "NetBox API token from Vault KV secrets_homelab/netbox_production" }

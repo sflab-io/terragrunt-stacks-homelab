@@ -48,9 +48,6 @@ Run `mise install` to install all required tools, or simply enter the directory 
 │   └── check-staging-catalog-version.sh # Pre-commit hook: enforces catalog_version = "main" in staging
 ├── .mise/                      # mise configuration and automation
 │   ├── common.sh               # Shared shell functions for mise tasks (logging, colors)
-│   ├── scripts/                # Scripts sourced/run by mise
-│   │   ├── set-vault-token.sh  # Sourced on directory entry — sets VAULT_TOKEN
-│   │   └── create-vault-token.sh # Run on enter hook — creates Vault AppRole token → ~/.vault-token
 │   └── tasks/                  # Automation tasks via mise
 ├── {environment}/              # Environment directories (staging, production)
 │   ├── environment.hcl         # Environment-specific variables
@@ -166,17 +163,17 @@ External module repository: `git@github.com:sflab-io/terragrunt-catalog-homelab.
 
 The repository uses **fnox** (`fnox.toml`) to map HashiCorp Vault secrets to environment variables. The mise `fnox-env` plugin loads secrets automatically on directory entry:
 
-- **Vault address**: `https://vault.home.sflab.io:8200` (also set as `VAULT_ADDR` env var by mise)
+- **Vault address**: `https://vault.home.sflab.io` (also set as `VAULT_ADDR` env var by mise)
 - **TLS verification**: `VAULT_SKIP_VERIFY = "true"` is set by mise (self-signed cert in homelab)
 - **Secrets loaded** (defined in `fnox.toml`):
   - `secrets_homelab/netbox/api_token` → `NETBOX_API_TOKEN`
   - `secrets_homelab/technitium/tsig_key_name` → `TSIG_KEY_NAME`
   - `secrets_homelab/technitium/tsig_key_secret` → `TSIG_KEY_SECRET`
 - **Startup sequence on directory entry**:
-  1. `.mise/scripts/set-vault-token.sh` is sourced — resolves `VAULT_TOKEN` from: `$VAULT_TOKEN` env var → `~/.vault-token` file → exits silently if neither found
+  1. `mise.toml` sets `VAULT_TOKEN` via `{{ exec(command='cat ~/.vault-token') }}`
   2. `fnox-env` plugin loads secrets from Vault using `VAULT_TOKEN`
-  3. `enter` hook runs `.mise/scripts/create-vault-token.sh` — creates/refreshes Vault AppRole token, saves to `~/.vault-token`
-- **AppRole credentials**: stored in `~/.vault-approle` (format: `role_id=...` / `secret_id=...`)
+  3. The `enter` hook runs the `hooks:enter` task (`.mise/tasks/hooks/enter`), which runs `mise install`, installs pre-commit hooks, and runs `vault:create-token` (`.mise/tasks/vault/create-token`) to create/refresh the Vault AppRole token and save it to `~/.vault-token`
+- **AppRole credentials**: provided via `VAULT_ROLE_ID` / `VAULT_SECRET_ID` environment variables (e.g. from `.env` or `.creds.env.yaml`), used by the `vault:create-token` task
 - Note: The AppRole `secret_id` must be configured for multiple uses (`secret_id_num_uses = 0`) in Vault
 
 **Pre-commit hooks** (`.pre-commit-config.yaml`) enforce:
@@ -247,7 +244,7 @@ mise run secrets:edit .creds.env.yaml
 **Notes**:
 - The `secrets:edit` task is available as a global mise task from `~/.config/mise/tasks/secrets/edit`
 - The `network:configure` and `network:status` tasks are global mise tasks (not defined in this repo)
-- Local tasks in `.mise/tasks/` cover: `minio/list`, `minio/setup`, `terragrunt/cleanup`, `terragrunt/stack/apply`, `terragrunt/stack/apply-old`, `terragrunt/stack/destroy`, `terragrunt/stack/destroy-old`, `terragrunt/stack/generate`, `terragrunt/stack/generate-old`, `terragrunt/stack/output`, `terragrunt/stack/output-old`, `terragrunt/stack/plan`, `terragrunt/stack/plan-old`
+- Local tasks in `.mise/tasks/` cover: `minio/list`, `minio/setup`, `terragrunt/cleanup`, `terragrunt/stack/apply`, `terragrunt/stack/apply-old`, `terragrunt/stack/destroy`, `terragrunt/stack/destroy-old`, `terragrunt/stack/generate`, `terragrunt/stack/generate-old`, `terragrunt/stack/output`, `terragrunt/stack/output-old`, `terragrunt/stack/plan`, `terragrunt/stack/plan-old`, `hooks/enter` (directory-entry hook), `vault/create-token` (refreshes `~/.vault-token` via AppRole), `claude-code/setup` (prints Claude Code plugin setup instructions)
 - All interactive tasks accept optional positional arguments: `mise run terragrunt:stack:apply <env> <stack>`
 
 ### Terragrunt Operations (Direct)
@@ -312,9 +309,11 @@ TSIG_KEY_SECRET                # DNS TSIG key secret — auto-loaded via fnox fr
 TSIG_KEY_NAME                  # DNS TSIG key name — auto-loaded via fnox from Vault
 NETBOX_API_TOKEN               # NetBox API token — auto-loaded via fnox from Vault (OPTIONAL: tasks warn if missing, provider uses fallback "unset_while_netbox_not_available")
 # Vault credentials (required for fnox auto-loading):
-VAULT_TOKEN                    # Vault token (or sourced from ~/.vault-token)
-VAULT_ADDR                     # Vault address — auto-set by mise to https://vault.home.sflab.io:8200
+VAULT_TOKEN                    # Vault token — auto-set by mise from ~/.vault-token
+VAULT_ADDR                     # Vault address — auto-set by mise to https://vault.home.sflab.io
 VAULT_SKIP_VERIFY              # Auto-set to "true" by mise (homelab uses self-signed TLS cert)
+VAULT_ROLE_ID                  # Vault AppRole role_id — used by the `vault:create-token` task to refresh ~/.vault-token on directory entry
+VAULT_SECRET_ID                # Vault AppRole secret_id — used by the `vault:create-token` task to refresh ~/.vault-token on directory entry
 ```
 
 **Note**: Environment variables are loaded automatically from:

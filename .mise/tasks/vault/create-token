@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
 # Creates a Vault AppRole token and saves it to ~/.vault-token.
-# Credentials are read from ~/.vault-approle (format: role_id=... / secret_id=...)
-# or from VAULT_ROLE_ID / VAULT_SECRET_ID environment variables.
-#
-# Note: The AppRole secret_id must be configured for multiple uses
-# (secret_id_num_uses = 0) in Vault, otherwise it expires after first use.
 
 set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/.mise/common.sh"
 
-VAULT_ADDR="${VAULT_ADDR:-https://vault.home.sflab.io:8200}"
 TOKEN_FILE="${HOME}/.vault-token"
 
 # check vault server availability before proceeding
