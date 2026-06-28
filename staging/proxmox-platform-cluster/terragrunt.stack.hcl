@@ -1,10 +1,11 @@
 locals {
   env    = read_terragrunt_config(find_in_parent_folders("environment.hcl")).locals
 
-  app    = "platform"
-  memory = 4096
-  cores  = 2
+  app       = "platform"
+  memory    = 4096
+  cores     = 2
   disk_size = 32
+  cpu_type  = "host"
 
   network_config = {
     type = "dhcp"
@@ -42,6 +43,7 @@ stack "vm_cp1_w1" {
     cores     = local.cores
     memory    = local.memory
     disk_size = local.disk_size
+    cpu_type  = local.cpu_type
 
     record_types = local.record_types
     dns_zone     = local.env.zone
@@ -76,6 +78,7 @@ stack "vm_cp2_w2" {
     cores     = local.cores
     memory    = local.memory
     disk_size = local.disk_size
+    cpu_type  = local.cpu_type
 
     record_types = local.record_types
     dns_zone     = local.env.zone
@@ -107,6 +110,7 @@ stack "vm_cp_3_w3" {
     cores     = local.cores
     memory    = local.memory
     disk_size = local.disk_size
+    cpu_type  = local.cpu_type
 
     record_types = local.record_types
     dns_zone     = local.env.zone

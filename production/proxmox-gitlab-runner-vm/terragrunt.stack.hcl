@@ -4,7 +4,7 @@ locals {
   app       = "gitlab-runner"
   memory    = 8192
   disk_size = 16000
-  cpu_type  = "host" # running dagger on gitlab runner requires VM CPU-Typ 'host' instead of 'qemu64' (default)
+  cpu_type  = "host"
 
   network_config = {
     type = "dhcp"
