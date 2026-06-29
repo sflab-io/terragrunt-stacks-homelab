@@ -22,12 +22,11 @@ locals {
   site_name    = local.env.netbox_site_name
   shared_tags  = ["${local.app}-${local.env.environment_name}"]
 
-  # Path of the K8s cluster stack in this file (path attribute of stack "netbox_k8s_cluster")
   cluster_stack_path = "netbox-platform-cluster"
 }
 
 # =======================
-# K3s Control Plane Nodes
+# K3s Nodes
 # =======================
 stack "vm_cp1_w1" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
@@ -61,9 +60,6 @@ stack "vm_cp1_w1" {
   }
 }
 
-# ================
-# K3s Worker Nodes
-# ================
 stack "vm_cp2_w2" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-proxmox-vm?ref=${local.env.catalog_version}"
 
@@ -129,7 +125,7 @@ stack "vm_cp_3_w3" {
 }
 
 # =======================
-# NetBox K8s Cluster
+# NetBox Platform Cluster
 # =======================
 stack "netbox_k8s_cluster" {
   source = "git::git@github.com:sflab-io/terragrunt-catalog-homelab.git//stacks/homelab-netbox-k8s-cluster?ref=${local.env.catalog_version}"
