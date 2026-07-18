@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#MISE description "Hook task that runs on directory entry. Used to setup environment variables and other necessary configuration for the project.
+#MISE description="Hook task that runs on directory entry. Used to setup environment variables and other necessary configuration for the project."
 
 echo "[MISE] Setup $PROJECT_NAME project..."
 
